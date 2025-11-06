@@ -1,0 +1,352 @@
+'use client';
+
+import { useState } from 'react';
+import { Team, Match, MatchResult } from '@/lib/types';
+import { calculateMatchPoints } from '@/lib/scoring';
+
+interface MatchEntryProps {
+  teams: Team[];
+  currentMatchNumber: number;
+  onSave: (results: MatchResult[]) => void;
+  isLoading?: boolean;
+}
+
+export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoading }: MatchEntryProps) {
+  const [results, setResults] = useState<Record<string, { placement: number | null; kills: number }>>(() => {
+    const initial: Record<string, { placement: number | null; kills: number }> = {};
+    // Initialize with no placements selected
+    teams.forEach((team) => {
+      initial[team.id] = { placement: null, kills: 0 };
+    });
+    return initial;
+  });
+
+  // Get currently assigned placements (excluding the current team being edited)
+  const getAssignedPlacements = (excludeTeamId?: string): Set<number> => {
+    const assigned = new Set<number>();
+    Object.entries(results).forEach(([teamId, result]) => {
+      if (teamId !== excludeTeamId && result.placement !== null) {
+        assigned.add(result.placement);
+      }
+    });
+    return assigned;
+  };
+
+  const handlePlacementChange = (teamId: string, newPlacement: string) => {
+    const placementValue = newPlacement === '' ? null : parseInt(newPlacement);
+    const assignedPlacements = getAssignedPlacements(teamId);
+    
+    if (placementValue === null) {
+      // Clear placement
+      setResults(prev => ({
+        ...prev,
+        [teamId]: { ...prev[teamId], placement: null },
+      }));
+      return;
+    }
+    
+    // Check if the new placement is already taken
+    if (assignedPlacements.has(placementValue)) {
+      // Find which team has this placement
+      const conflictingTeam = teams.find(t => {
+        const result = results[t.id];
+        return t.id !== teamId && result?.placement === placementValue;
+      });
+      
+      if (conflictingTeam) {
+        // Swap placements: give the conflicting team the current team's placement
+        const currentPlacement = results[teamId].placement;
+        setResults(prev => ({
+          ...prev,
+          [teamId]: { ...prev[teamId], placement: placementValue },
+          [conflictingTeam.id]: { ...prev[conflictingTeam.id], placement: currentPlacement },
+        }));
+      }
+    } else {
+      // Placement is available, assign it
+      setResults(prev => ({
+        ...prev,
+        [teamId]: { ...prev[teamId], placement: placementValue },
+      }));
+    }
+  };
+
+  const handleKillsChange = (teamId: string, kills: number) => {
+    setResults(prev => ({
+      ...prev,
+      [teamId]: { ...prev[teamId], kills: Math.max(0, kills) },
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate that all teams have placements assigned
+    const placements = Object.values(results)
+      .map(r => r.placement)
+      .filter((p): p is number => p !== null);
+    
+    if (placements.length !== 12) {
+      alert('Error: All 12 teams must have a placement assigned. Please assign placements to all teams.');
+      return;
+    }
+    
+    // Validate that all placements are unique (1-12)
+    const uniquePlacements = new Set(placements);
+    if (uniquePlacements.size !== placements.length) {
+      alert('Error: Each team must have a unique placement (1-12). Please ensure all placements are different.');
+      return;
+    }
+
+    // Validate that all placements from 1-12 are present
+    const sortedPlacements = [...placements].sort((a, b) => a - b);
+    const missingPlacements: number[] = [];
+    for (let i = 1; i <= 12; i++) {
+      if (!sortedPlacements.includes(i)) {
+        missingPlacements.push(i);
+      }
+    }
+    
+    if (missingPlacements.length > 0) {
+      alert(`Error: Missing placements: ${missingPlacements.join(', ')}. All placements from 1-12 must be assigned.`);
+      return;
+    }
+
+    const matchResults: MatchResult[] = teams.map(team => {
+      const result = results[team.id];
+      if (result.placement === null) {
+        throw new Error('Placement cannot be null at this point');
+      }
+      return {
+        teamId: team.id,
+        placement: result.placement,
+        kills: result.kills,
+        points: calculateMatchPoints(result.placement, result.kills),
+      };
+    });
+
+    onSave(matchResults);
+  };
+
+  // Get placement status for visual feedback
+  const getPlacementStatus = (placement: number, currentTeamId: string): 'available' | 'taken' | 'current' => {
+    const assignedPlacements = getAssignedPlacements(currentTeamId);
+    if (results[currentTeamId]?.placement === placement) {
+      return 'current';
+    }
+    return assignedPlacements.has(placement) ? 'taken' : 'available';
+  };
+
+  // Check if all placements are assigned
+  const allPlacementsAssigned = Object.values(results).every(r => r.placement !== null);
+
+  // Sort teams by slot number for display
+  const sortedTeams = [...teams].sort((a, b) => a.slotNumber - b.slotNumber);
+  
+  // Get all assigned placements for summary
+  const allPlacements = Object.values(results)
+    .map(r => r.placement)
+    .filter((p): p is number => p !== null);
+  const isAllPlacementsUnique = allPlacements.length === 12 && new Set(allPlacements).size === 12;
+  const hasAllPlacements = allPlacements.length === 12 && 
+    [...allPlacements].sort((a, b) => a - b).every((val, idx) => val === idx + 1);
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+          Match {currentMatchNumber} Entry
+        </h2>
+        <div className="text-xs sm:text-sm">
+          {hasAllPlacements && isAllPlacementsUnique ? (
+            <span className="inline-block px-2 sm:px-3 py-1 bg-green-100 text-green-800 rounded-full font-semibold">
+              ✓ All placements assigned (1-12)
+            </span>
+          ) : (
+            <span className="inline-block px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full font-semibold">
+              ⚠ Ensure all placements are unique (1-12)
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
+        {/* Mobile Card View */}
+        <div className="block sm:hidden space-y-3">
+          {sortedTeams.map((team) => {
+            const result = results[team.id];
+            const points = result.placement !== null 
+              ? calculateMatchPoints(result.placement, result.kills) 
+              : 0;
+            const assignedPlacements = getAssignedPlacements(team.id);
+            
+            return (
+              <div
+                key={team.id}
+                className="border border-gray-200 rounded-lg p-3 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-gray-500">Slot #{team.slotNumber}</span>
+                    <h3 className="text-sm font-semibold text-gray-900">{team.name}</h3>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">{points}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Placement</label>
+                    <select
+                      value={result.placement ?? ''}
+                      onChange={(e) => handlePlacementChange(team.id, e.target.value)}
+                      className={`w-full px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 ${
+                        result.placement === null
+                          ? 'border-red-300 bg-red-50'
+                          : isAllPlacementsUnique && hasAllPlacements
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300 bg-white'
+                      }`}
+                      required
+                    >
+                      <option value="">Select</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((place) => {
+                        const isTaken = assignedPlacements.has(place);
+                        const teamWithPlacement = isTaken 
+                          ? teams.find(t => t.id !== team.id && results[t.id]?.placement === place)
+                          : null;
+                        
+                        return (
+                          <option 
+                            key={place} 
+                            value={place}
+                          >
+                            {place}
+                            {isTaken && teamWithPlacement ? ` (${teamWithPlacement.name})` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {result.placement === null && (
+                      <p className="text-xs text-red-600 mt-1">Required</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Kills</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={result.kills}
+                      onChange={(e) => handleKillsChange(team.id, parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden sm:block space-y-3">
+          <div className="grid grid-cols-12 gap-2 text-sm font-semibold text-gray-700 pb-2 border-b border-gray-300">
+            <div className="col-span-2">Slot</div>
+            <div className="col-span-4">Team Name</div>
+            <div className="col-span-2">Placement</div>
+            <div className="col-span-2">Kills</div>
+            <div className="col-span-2">Points</div>
+          </div>
+
+          {sortedTeams.map((team) => {
+            const result = results[team.id];
+            const points = result.placement !== null 
+              ? calculateMatchPoints(result.placement, result.kills) 
+              : 0;
+            const assignedPlacements = getAssignedPlacements(team.id);
+            
+            return (
+              <div
+                key={team.id}
+                className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+              >
+                <div className="col-span-2 text-sm font-medium text-gray-600">
+                  #{team.slotNumber}
+                </div>
+                <div className="col-span-4 text-sm font-medium text-gray-900">
+                  {team.name}
+                </div>
+                <div className="col-span-2">
+                  <select
+                    value={result.placement ?? ''}
+                    onChange={(e) => handlePlacementChange(team.id, e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 ${
+                      result.placement === null
+                        ? 'border-red-300 bg-red-50'
+                        : isAllPlacementsUnique && hasAllPlacements
+                        ? 'border-green-300 bg-green-50'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                    required
+                  >
+                    <option value="">Select placement</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((place) => {
+                      const isTaken = assignedPlacements.has(place);
+                      const teamWithPlacement = isTaken 
+                        ? teams.find(t => t.id !== team.id && results[t.id]?.placement === place)
+                        : null;
+                      
+                      return (
+                        <option 
+                          key={place} 
+                          value={place}
+                        >
+                          {place}
+                          {isTaken && teamWithPlacement ? ` (${teamWithPlacement.name})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {result.placement === null && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Placement required
+                    </p>
+                  )}
+                  {result.placement !== null && !isAllPlacementsUnique && (
+                    <p className="text-xs text-yellow-600 mt-1">
+                      Selecting a taken placement will swap with that team
+                    </p>
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <input
+                    type="number"
+                    min="0"
+                    value={result.kills}
+                    onChange={(e) => handleKillsChange(team.id, parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
+                    required
+                  />
+                </div>
+                <div className="col-span-2 text-sm font-bold text-blue-600">
+                  {points}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 sm:mt-6 flex justify-end">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+          >
+            {isLoading ? 'Saving...' : `Save Match ${currentMatchNumber}`}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
