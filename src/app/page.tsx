@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Lobby } from '@/lib/types';
 import { getAllLobbies, deleteLobby, getLobbiesByDate } from '@/lib/storage';
 import LobbyCard from '@/components/LobbyCard';
@@ -63,12 +64,24 @@ export default function Home() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            Free Fire Tournament Manager
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600">
-            Manage multiple tournament lobbies with independent leaderboards
-          </p>
+          <div className="flex items-center gap-3 sm:gap-4 mb-3">
+            <Image 
+              src="/logo.png" 
+              alt="4DL Logo" 
+              width={64}
+              height={64}
+              className="h-12 w-12 sm:h-16 sm:w-16 object-contain"
+              priority
+            />
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-1">
+                Free Fire Tournament Manager
+              </h1>
+              <p className="text-sm sm:text-base text-gray-600">
+                Manage multiple tournament lobbies with independent leaderboards
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Actions Bar */}

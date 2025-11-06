@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Lobby, Team } from '@/lib/types';
 import { saveLobby, generateLobbyId } from '@/lib/storage';
 import DateInput from '@/components/DateInput';
@@ -89,7 +90,17 @@ export default function NewLobbyPage() {
     <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-4xl mx-auto">
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">Create New Lobby</h1>
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <Image 
+              src="/logo.png" 
+              alt="4DL Logo" 
+              width={48}
+              height={48}
+              className="h-10 w-10 sm:h-12 sm:w-12 object-contain"
+              priority
+            />
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Create New Lobby</h1>
+          </div>
           <p className="text-sm sm:text-base text-gray-600">Set up a new tournament lobby with 12 teams</p>
         </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Lobby, MatchResult } from '@/lib/types';
 import { getLobby, saveLobby } from '@/lib/storage';
 import { calculateLeaderboard, getCurrentMatchNumber, isLobbyCompleted, getLobbyStatus } from '@/lib/scoring';
@@ -125,7 +126,16 @@ export default function LobbyDetailPage() {
           </Link>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-1 sm:mb-2 break-words">{lobby.name}</h1>
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <Image 
+                  src="/logo.png" 
+                  alt="4DL Logo" 
+                  width={40}
+                  height={40}
+                  className="h-8 w-8 sm:h-10 sm:w-10 object-contain flex-shrink-0"
+                />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 break-words">{lobby.name}</h1>
+              </div>
               <p className="text-sm sm:text-base text-gray-600">Date: {lobby.date}</p>
               <p className="text-xs sm:text-sm text-gray-500 mt-1">
                 Status: <span className="font-semibold capitalize">{lobby.status}</span> | 

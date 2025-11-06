@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   keywords: "Free Fire, tournament, leaderboard, scoring, esports",
   authors: [{ name: "4DL Point Calculator" }],
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
