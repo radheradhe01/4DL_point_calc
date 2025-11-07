@@ -47,6 +47,7 @@ export function calculateLeaderboard(
     booyahs: number;
     totalKills: number;
     totalPlacementPoints: number;
+    matchesPlayed: number;
   }>();
 
   // Initialize stats for all teams
@@ -58,12 +59,15 @@ export function calculateLeaderboard(
       booyahs: 0,
       totalKills: 0,
       totalPlacementPoints: 0,
+      matchesPlayed: 0,
     });
   });
 
   // Aggregate stats from all matches
   matches.forEach(match => {
+    const teamsInMatch = new Set<string>();
     match.results.forEach(result => {
+      teamsInMatch.add(result.teamId);
       const stats = teamStats.get(result.teamId);
       if (stats) {
         const placementPoints = getPlacementPoints(result.placement);
@@ -75,6 +79,13 @@ export function calculateLeaderboard(
         if (result.placement === 1) {
           stats.booyahs += 1;
         }
+      }
+    });
+    // Increment matches played for each team in this match
+    teamsInMatch.forEach(teamId => {
+      const stats = teamStats.get(teamId);
+      if (stats) {
+        stats.matchesPlayed += 1;
       }
     });
   });

@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Team, Match, MatchResult } from '@/lib/types';
 import { calculateMatchPoints } from '@/lib/scoring';
 
 interface MatchEntryProps {
   teams: Team[];
   currentMatchNumber: number;
+  previousMatches?: Match[]; // Previous matches to calculate cumulative points
   onSave: (results: MatchResult[]) => void;
   isLoading?: boolean;
 }
 
-export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoading }: MatchEntryProps) {
+export default function MatchEntry({ teams, currentMatchNumber, previousMatches = [], onSave, isLoading }: MatchEntryProps) {
   const [results, setResults] = useState<Record<string, { placement: number | null; kills: number }>>(() => {
     const initial: Record<string, { placement: number | null; kills: number }> = {};
     // Initialize with no placements selected
@@ -20,6 +21,15 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
     });
     return initial;
   });
+
+  // Reset form state when match number changes
+  useEffect(() => {
+    const initial: Record<string, { placement: number | null; kills: number }> = {};
+    teams.forEach((team) => {
+      initial[team.id] = { placement: null, kills: 0 };
+    });
+    setResults(initial);
+  }, [currentMatchNumber, teams]);
 
   // Get currently assigned placements (excluding the current team being edited)
   const getAssignedPlacements = (excludeTeamId?: string): Set<number> => {
@@ -151,6 +161,27 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
   const hasAllPlacements = allPlacements.length === 12 && 
     [...allPlacements].sort((a, b) => a - b).every((val, idx) => val === idx + 1);
 
+  // Calculate cumulative points for each team (previous matches + current match)
+  const getCumulativePoints = (teamId: string): number => {
+    // Sum points from previous matches
+    let previousPoints = 0;
+    previousMatches.forEach(match => {
+      const matchResult = match.results.find(r => r.teamId === teamId);
+      if (matchResult) {
+        previousPoints += matchResult.points;
+      }
+    });
+    
+    // Add current match points (if placement is set)
+    const currentResult = results[teamId];
+    if (currentResult && currentResult.placement !== null) {
+      const currentMatchPoints = calculateMatchPoints(currentResult.placement, currentResult.kills);
+      return previousPoints + currentMatchPoints;
+    }
+    
+    return previousPoints;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-3 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
@@ -175,9 +206,10 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
         <div className="block sm:hidden space-y-3">
           {sortedTeams.map((team) => {
             const result = results[team.id];
-            const points = result.placement !== null 
+            const currentMatchPoints = result.placement !== null 
               ? calculateMatchPoints(result.placement, result.kills) 
               : 0;
+            const cumulativePoints = getCumulativePoints(team.id);
             const assignedPlacements = getAssignedPlacements(team.id);
             
             return (
@@ -190,7 +222,10 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
                     <span className="text-xs text-gray-500">Slot #{team.slotNumber}</span>
                     <h3 className="text-sm font-semibold text-gray-900">{team.name}</h3>
                   </div>
-                  <span className="text-lg font-bold text-blue-600">{points}</span>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Current: {currentMatchPoints}</div>
+                    <div className="text-lg font-bold text-blue-600">Total: {cumulativePoints}</div>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -252,17 +287,18 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
         <div className="hidden sm:block space-y-3">
           <div className="grid grid-cols-12 gap-2 text-sm font-semibold text-gray-700 pb-2 border-b border-gray-300">
             <div className="col-span-2">Slot</div>
-            <div className="col-span-4">Team Name</div>
+            <div className="col-span-3">Team Name</div>
             <div className="col-span-2">Placement</div>
             <div className="col-span-2">Kills</div>
-            <div className="col-span-2">Points</div>
+            <div className="col-span-3">Points</div>
           </div>
 
           {sortedTeams.map((team) => {
             const result = results[team.id];
-            const points = result.placement !== null 
+            const currentMatchPoints = result.placement !== null 
               ? calculateMatchPoints(result.placement, result.kills) 
               : 0;
+            const cumulativePoints = getCumulativePoints(team.id);
             const assignedPlacements = getAssignedPlacements(team.id);
             
             return (
@@ -273,7 +309,7 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
                 <div className="col-span-2 text-sm font-medium text-gray-600">
                   #{team.slotNumber}
                 </div>
-                <div className="col-span-4 text-sm font-medium text-gray-900">
+                <div className="col-span-3 text-sm font-medium text-gray-900">
                   {team.name}
                 </div>
                 <div className="col-span-2">
@@ -328,8 +364,9 @@ export default function MatchEntry({ teams, currentMatchNumber, onSave, isLoadin
                     required
                   />
                 </div>
-                <div className="col-span-2 text-sm font-bold text-blue-600">
-                  {points}
+                <div className="col-span-2">
+                  <div className="text-xs text-gray-500">Current: {currentMatchPoints}</div>
+                  <div className="text-sm font-bold text-blue-600">Total: {cumulativePoints}</div>
                 </div>
               </div>
             );

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Lobby, Team } from '@/lib/types';
 import { saveLobby, generateLobbyId } from '@/lib/storage';
+import { BackgroundTemplate } from '@/lib/backgroundTemplates';
 import DateInput from '@/components/DateInput';
 
 export default function NewLobbyPage() {
@@ -12,9 +13,38 @@ export default function NewLobbyPage() {
   const [lobbyName, setLobbyName] = useState('');
   const [lobbyDate, setLobbyDate] = useState(new Date().toISOString().split('T')[0]);
   const [hostNotes, setHostNotes] = useState('');
+  const [tournamentName, setTournamentName] = useState('');
+  const [prizeMoney, setPrizeMoney] = useState('');
+  const [tournamentStage, setTournamentStage] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [templates, setTemplates] = useState<BackgroundTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [teams, setTeams] = useState<string[]>(Array(12).fill(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Fetch templates on component mount
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const response = await fetch('/api/backgrounds');
+        if (response.ok) {
+          const data = await response.json();
+          setTemplates(data);
+        } else {
+          console.error('Failed to fetch templates');
+          setErrors(['Failed to load background templates. Please refresh the page.']);
+        }
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+        setErrors(['Failed to load background templates. Please refresh the page.']);
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
 
   const handleTeamChange = (index: number, value: string) => {
     const newTeams = [...teams];
@@ -22,7 +52,7 @@ export default function NewLobbyPage() {
     setTeams(newTeams);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors([]);
 
@@ -35,6 +65,22 @@ export default function NewLobbyPage() {
 
     if (!lobbyDate) {
       validationErrors.push('Date is required');
+    }
+
+    if (!tournamentName.trim()) {
+      validationErrors.push('Tournament name is required');
+    }
+
+    if (!prizeMoney.trim()) {
+      validationErrors.push('Prize money is required');
+    }
+
+    if (!tournamentStage.trim()) {
+      validationErrors.push('Tournament stage is required');
+    }
+
+    if (!selectedTemplate) {
+      validationErrors.push('Background template is required');
     }
 
     const validTeams = teams.filter(name => name.trim() !== '');
@@ -56,28 +102,32 @@ export default function NewLobbyPage() {
 
     setIsSubmitting(true);
 
-    // Create lobby
-    const lobbyId = generateLobbyId();
-    const lobbyTeams: Team[] = validTeams.map((name, index) => ({
-      id: `team_${lobbyId}_${index}`,
-      lobbyId,
-      name: name.trim(),
-      slotNumber: index + 1,
-    }));
-
-    const newLobby: Lobby = {
-      id: lobbyId,
-      name: lobbyName.trim(),
-      date: lobbyDate,
-      status: 'not_started',
-      hostNotes: hostNotes.trim() || undefined,
-      teams: lobbyTeams,
-      matches: [],
-      createdAt: new Date().toISOString(),
-    };
-
     try {
-      saveLobby(newLobby);
+      // Create lobby
+      const lobbyId = await generateLobbyId();
+      const lobbyTeams: Team[] = validTeams.map((name, index) => ({
+        id: `team_${lobbyId}_${index}`,
+        lobbyId,
+        name: name.trim(),
+        slotNumber: index + 1,
+      }));
+
+      const newLobby: Lobby = {
+        id: lobbyId,
+        name: lobbyName.trim(),
+        date: lobbyDate,
+        status: 'not_started',
+        hostNotes: hostNotes.trim() || undefined,
+        tournamentName: tournamentName.trim(),
+        prizeMoney: prizeMoney.trim(),
+        tournamentStage: tournamentStage.trim(),
+        backgroundTemplate: selectedTemplate,
+        teams: lobbyTeams,
+        matches: [],
+        createdAt: new Date().toISOString(),
+      };
+
+      await saveLobby(newLobby);
       router.push(`/lobby/${lobbyId}`);
     } catch (error) {
       console.error('Error creating lobby:', error);
@@ -135,6 +185,131 @@ export default function NewLobbyPage() {
                   className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
                   label="Date *"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="tournament-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Tournament Name *
+                </label>
+                <input
+                  id="tournament-name"
+                  type="text"
+                  value={tournamentName}
+                  onChange={(e) => setTournamentName(e.target.value)}
+                  placeholder="e.g., Battle of Crown"
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label htmlFor="prize-money" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                    Prize Money *
+                  </label>
+                  <input
+                    id="prize-money"
+                    type="text"
+                    value={prizeMoney}
+                    onChange={(e) => setPrizeMoney(e.target.value)}
+                    placeholder="e.g., 3K"
+                    className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="tournament-stage" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                    Tournament Stage *
+                  </label>
+                  <select
+                    id="tournament-stage"
+                    value={tournamentStage}
+                    onChange={(e) => setTournamentStage(e.target.value)}
+                    className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
+                    required
+                  >
+                    <option value="">Select Stage</option>
+                    <option value="Quarters">Quarters</option>
+                    <option value="Semi-Finals">Semi-Finals</option>
+                    <option value="Finals">Finals</option>
+                    <option value="Grand Finals">Grand Finals</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Background Template *
+                </label>
+                {isLoadingTemplates ? (
+                  <div className="text-center py-8 text-gray-500">
+                    Loading templates...
+                  </div>
+                ) : templates.length === 0 ? (
+                  <div className="text-center py-8 text-red-500">
+                    No templates found. Please add template images to the backgrounds folder.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+                      {templates.map((template) => (
+                        <div
+                          key={template.id}
+                          className={`relative cursor-pointer rounded-lg border-2 transition-all ${
+                            selectedTemplate === template.id
+                              ? 'border-blue-600 ring-2 ring-blue-500 ring-offset-2'
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                          onClick={() => setSelectedTemplate(template.id)}
+                        >
+                          <div className="aspect-video relative overflow-hidden rounded-t-lg bg-gray-100">
+                            <Image
+                              src={template.previewUrl}
+                              alt={template.name}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                            />
+                          </div>
+                          <div className="p-2 sm:p-3 bg-white rounded-b-lg">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 text-center">
+                              {template.name}
+                            </p>
+                            {template.description && (
+                              <p className="text-xs text-gray-500 text-center mt-1 hidden sm:block">
+                                {template.description}
+                              </p>
+                            )}
+                          </div>
+                          {selectedTemplate === template.id && (
+                            <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1">
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {!selectedTemplate && (
+                      <p className="mt-2 text-xs text-red-600">Please select a background template</p>
+                    )}
+                  </>
+                )}
+                <p className="mt-2 text-xs text-gray-500">
+                  Choose a background template for the leaderboard export
+                </p>
               </div>
 
               <div>

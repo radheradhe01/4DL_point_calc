@@ -50,19 +50,19 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
                 {entry.totalPoints}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
               <div>
-                <span className="text-gray-500">Slot:</span> #{entry.slotNumber}
+                <span className="text-gray-500">Match:</span> {entry.matchesPlayed}
               </div>
               <div>
-                <span className="text-gray-500">Booyahs:</span> {entry.booyahs}
+                <span className="text-gray-500">Wins:</span> {entry.booyahs}
               </div>
               <div>
-                <span className="text-gray-500">Kills:</span> {entry.totalKills}
+                <span className="text-gray-500">Placement points:</span> {entry.totalPlacementPoints}
               </div>
-            </div>
-            <div className="mt-2 text-xs text-gray-500">
-              Placement Pts: {entry.totalPlacementPoints}
+              <div>
+                <span className="text-gray-500">Kill points:</span> {entry.totalKills}
+              </div>
             </div>
           </div>
         ))}
@@ -74,25 +74,25 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Rank
+                Rank (Pos)
               </th>
               <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Team Name
               </th>
-              <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Slot
+              <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Match
               </th>
               <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total Points
+                Placement points
               </th>
               <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Booyahs
+                Kill points
               </th>
               <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total Kills
+                Total points
               </th>
               <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Placement Pts
+                Wins
               </th>
             </tr>
           </thead>
@@ -117,8 +117,14 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
                     {entry.teamName}
                   </div>
                 </td>
-                <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">#{entry.slotNumber}</div>
+                <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
+                  <div className="text-sm text-gray-600">{entry.matchesPlayed}</div>
+                </td>
+                <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
+                  <div className="text-sm text-gray-600">{entry.totalPlacementPoints}</div>
+                </td>
+                <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
+                  <div className="text-sm text-gray-600">{entry.totalKills}</div>
                 </td>
                 <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
                   <div className="text-sm font-bold text-gray-900">
@@ -127,12 +133,6 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
                 </td>
                 <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
                   <div className="text-sm text-gray-600">{entry.booyahs}</div>
-                </td>
-                <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
-                  <div className="text-sm text-gray-600">{entry.totalKills}</div>
-                </td>
-                <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right">
-                  <div className="text-sm text-gray-600">{entry.totalPlacementPoints}</div>
                 </td>
               </tr>
             ))}

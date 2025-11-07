@@ -14,47 +14,69 @@ export default function Home() {
   const [filteredLobbies, setFilteredLobbies] = useState<Lobby[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadLobbies();
   }, []);
 
   useEffect(() => {
-    if (selectedDate) {
-      const filtered = getLobbiesByDate(selectedDate);
-      setFilteredLobbies(filtered);
-    } else {
-      setFilteredLobbies(lobbies);
-    }
+    const filterLobbies = async () => {
+      if (selectedDate) {
+        const filtered = await getLobbiesByDate(selectedDate);
+        setFilteredLobbies(filtered);
+      } else {
+        setFilteredLobbies(lobbies);
+      }
+    };
+    filterLobbies();
   }, [selectedDate, lobbies]);
 
-  const loadLobbies = () => {
-    const allLobbies = getAllLobbies();
-    setLobbies(allLobbies);
-    setFilteredLobbies(allLobbies);
+  const loadLobbies = async () => {
+    setIsLoading(true);
+    try {
+      const allLobbies = await getAllLobbies();
+      setLobbies(allLobbies);
+      setFilteredLobbies(allLobbies);
+    } catch (error) {
+      console.error('Error loading lobbies:', error);
+      alert('Failed to load lobbies. Please refresh the page.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (showDeleteConfirm === id) {
-      deleteLobby(id);
-      loadLobbies();
-      setShowDeleteConfirm(null);
+      try {
+        await deleteLobby(id);
+        await loadLobbies();
+        setShowDeleteConfirm(null);
+      } catch (error) {
+        console.error('Error deleting lobby:', error);
+        alert('Failed to delete lobby. Please try again.');
+      }
     } else {
       setShowDeleteConfirm(id);
     }
   };
 
-  const handleExportDaily = () => {
+  const handleExportDaily = async () => {
     if (!selectedDate) {
       alert('Please select a date first');
       return;
     }
-    const dailyLobbies = getLobbiesByDate(selectedDate);
-    if (dailyLobbies.length === 0) {
-      alert('No lobbies found for selected date');
-      return;
+    try {
+      const dailyLobbies = await getLobbiesByDate(selectedDate);
+      if (dailyLobbies.length === 0) {
+        alert('No lobbies found for selected date');
+        return;
+      }
+      exportDailySummary(dailyLobbies, selectedDate);
+    } catch (error) {
+      console.error('Error exporting daily summary:', error);
+      alert('Failed to export daily summary. Please try again.');
     }
-    exportDailySummary(dailyLobbies, selectedDate);
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -125,7 +147,11 @@ export default function Home() {
         </div>
 
         {/* Lobbies Grid */}
-        {filteredLobbies.length === 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-lg shadow-md p-6 sm:p-12 text-center">
+            <p className="text-lg sm:text-xl text-gray-600">Loading lobbies...</p>
+          </div>
+        ) : filteredLobbies.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-6 sm:p-12 text-center">
             <p className="text-lg sm:text-xl text-gray-600 mb-4">
               {selectedDate ? 'No lobbies found for selected date' : 'No lobbies created yet'}

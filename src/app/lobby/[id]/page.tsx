@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Lobby, MatchResult } from '@/lib/types';
 import { getLobby, saveLobby } from '@/lib/storage';
 import { calculateLeaderboard, getCurrentMatchNumber, isLobbyCompleted, getLobbyStatus } from '@/lib/scoring';
-import { exportLobbyToCSV, exportLobbyToPDF } from '@/utils/export';
+import { exportLobbyToCSV, exportLobbyToPDF, exportLeaderboardAsImage } from '@/utils/export';
 import MatchEntry from '@/components/MatchEntry';
 import Leaderboard from '@/components/Leaderboard';
 import MatchHistory from '@/components/MatchHistory';
@@ -18,16 +18,26 @@ export default function LobbyDetailPage() {
   const lobbyId = params.id as string;
   
   const [lobby, setLobby] = useState<Lobby | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const loadLobby = () => {
-    const loadedLobby = getLobby(lobbyId);
-    if (!loadedLobby) {
+  const loadLobby = async () => {
+    setIsLoading(true);
+    try {
+      const loadedLobby = await getLobby(lobbyId);
+      if (!loadedLobby) {
+        router.push('/');
+        return;
+      }
+      setLobby(loadedLobby);
+    } catch (error) {
+      console.error('Error loading lobby:', error);
+      alert('Failed to load lobby. Please try again.');
       router.push('/');
-      return;
+    } finally {
+      setIsLoading(false);
     }
-    setLobby(loadedLobby);
   };
 
   useEffect(() => {
@@ -52,10 +62,10 @@ export default function LobbyDetailPage() {
     };
   }, [showExportMenu]);
 
-  const handleSaveMatch = (results: MatchResult[]) => {
+  const handleSaveMatch = async (results: MatchResult[]) => {
     if (!lobby) return;
 
-    setIsLoading(true);
+    setIsSaving(true);
 
     const currentMatchNum = getCurrentMatchNumber(lobby.matches);
     const newMatch = {
@@ -73,13 +83,13 @@ export default function LobbyDetailPage() {
     };
 
     try {
-      saveLobby(updatedLobby);
+      await saveLobby(updatedLobby);
       setLobby(updatedLobby);
     } catch (error) {
       console.error('Error saving match:', error);
       alert('Failed to save match. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -94,6 +104,18 @@ export default function LobbyDetailPage() {
     if (lobby) {
       await exportLobbyToPDF(lobby);
       setShowExportMenu(false);
+    }
+  };
+
+  const handleExportImage = async () => {
+    if (lobby) {
+      try {
+        await exportLeaderboardAsImage(lobby);
+        setShowExportMenu(false);
+      } catch (error) {
+        console.error('Error exporting image:', error);
+        alert('Failed to export image. Please try again.');
+      }
     }
   };
 
@@ -164,6 +186,12 @@ export default function LobbyDetailPage() {
                     >
                       Export as PDF
                     </button>
+                    <button
+                      onClick={handleExportImage}
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm border-t border-gray-200"
+                    >
+                      Export as Image (PNG)
+                    </button>
                   </div>
                 )}
               </div>
@@ -184,8 +212,9 @@ export default function LobbyDetailPage() {
             <MatchEntry
               teams={lobby.teams}
               currentMatchNumber={currentMatchNum}
+              previousMatches={lobby.matches}
               onSave={handleSaveMatch}
-              isLoading={isLoading}
+              isLoading={isSaving}
             />
           </div>
         )}

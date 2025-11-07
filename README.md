@@ -31,11 +31,36 @@ A comprehensive Next.js web application for managing Free Fire tournaments with 
 - **Daily Summary**: Export all lobbies for a specific date
 
 ### Data Persistence
-- Browser localStorage for data persistence across sessions
+- **Supabase Database**: All data is stored in Supabase PostgreSQL database
 - Auto-save on data entry
-- No backend required - all data stored locally
+- Real-time data synchronization across devices
+- Persistent storage with automatic backups
 
 ## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Supabase account and project
+
+### Database Setup
+
+1. **Create Supabase Project**
+   - Go to [supabase.com](https://supabase.com) and create a new project
+   - Note your project URL and anon public key
+
+2. **Run Database Schema**
+   - Open your Supabase project dashboard
+   - Go to SQL Editor
+   - Copy and paste the contents of `supabase-schema.sql`
+   - Run the SQL script to create all tables and policies
+
+3. **Configure Environment Variables**
+   - Create a `.env.local` file in the project root:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
 
 ### Installation
 
@@ -106,8 +131,8 @@ npm start
 - **Next.js 14** - React framework with App Router
 - **TypeScript** - Type-safe JavaScript
 - **Tailwind CSS** - Utility-first CSS framework
+- **Supabase** - PostgreSQL database with real-time capabilities
 - **jsPDF** - PDF generation
-- **localStorage** - Client-side data persistence
 
 ## Project Structure
 
@@ -126,7 +151,8 @@ src/
 │   └── MatchHistory.tsx            # Match history display
 ├── lib/
 │   ├── types.ts                    # TypeScript interfaces
-│   ├── storage.ts                  # localStorage utilities
+│   ├── storage.ts                  # Supabase database utilities
+│   ├── supabase.ts                 # Supabase client configuration
 │   └── scoring.ts                  # Point calculation logic
 └── utils/
     └── export.ts                   # CSV/PDF export functions
@@ -156,10 +182,21 @@ src/
 3. Total Kills
 4. Total Placement Points
 
+## Database Schema
+
+The application uses the following Supabase tables:
+- `lobbies` - Tournament lobby information
+- `teams` - Team details for each lobby
+- `matches` - Match records
+- `match_results` - Individual team results per match
+
+See `supabase-schema.sql` for the complete schema definition.
+
 ## Notes
 
-- All data is stored in browser localStorage
-- Clearing browser data will delete all tournament records
+- All data is stored in Supabase PostgreSQL database
+- Data persists across devices and sessions
 - Export important data regularly for backup
 - Each lobby requires exactly 12 teams
 - Each match requires all 12 placements to be unique (1-12)
+- Row Level Security (RLS) is enabled with public access policies
