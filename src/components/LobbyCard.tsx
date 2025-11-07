@@ -56,11 +56,11 @@ export default function LobbyCard({ lobby, onDelete }: LobbyCardProps) {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
         <div>
           <span className="text-gray-600">Matches:</span>
-          <span className="ml-2 font-semibold">{matchesCompleted}/6</span>
+          <span className="ml-2 font-semibold text-gray-900">{matchesCompleted}/6</span>
         </div>
         <div>
           <span className="text-gray-600">Teams:</span>
-          <span className="ml-2 font-semibold">{lobby.teams.length}</span>
+          <span className="ml-2 font-semibold text-gray-900">{lobby.teams.length}</span>
         </div>
         {winner && (
           <div className="col-span-2">

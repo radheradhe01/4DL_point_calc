@@ -41,6 +41,14 @@ body {
   min-height: -webkit-fill-available; /* iOS Safari */
 }
 
+/* Ensure default text is dark for better visibility */
+/* Only apply to elements without explicit color classes */
+p:not([class*="text-"]):not(.text-white),
+span:not([class*="text-"]):not(.text-white),
+div:not([class*="text-"]):not(.text-white) {
+  color: #171717;
+}
+
 /* Safe area insets for iOS devices */
 @supports (padding: max(0px)) {
   body {
