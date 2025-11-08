@@ -68,7 +68,7 @@ export default function NewLobbyPage() {
     if (playingTeams > registeredTeams) {
       setPlayingTeams(registeredTeams);
     }
-  }, [registeredTeams, playingTeams]);
+  }, [registeredTeams, playingTeams, teams.length]);
 
   // Ensure playingTeams doesn't exceed registeredTeams
   useEffect(() => {

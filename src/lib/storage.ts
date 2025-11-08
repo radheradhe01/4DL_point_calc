@@ -64,7 +64,7 @@ export async function getLobby(id: string): Promise<Lobby | null> {
   try {
     const supabase = supabaseBrowser();
     const { data, error } = await supabase
-      .rpc('get_lobby_bundle', { l_id: id })
+      .rpc('get_lobby_bundle' as any, { l_id: id } as any)
       .single();
 
     if (error) throw error;
@@ -87,14 +87,14 @@ export async function getAllLobbies(): Promise<Lobby[]> {
     
     // First get lightweight summaries
     const { data: summaries, error: summaryError } = await supabase
-      .rpc('get_lobbies_summary');
+      .rpc('get_lobbies_summary' as any);
 
     if (summaryError) throw summaryError;
-    if (!summaries || summaries.length === 0) return [];
+    if (!summaries || !Array.isArray(summaries) || (summaries as any[]).length === 0) return [];
 
     // For dashboard, we can return lightweight versions
     // Full details loaded on-demand when viewing a lobby
-    return summaries.map((summary: any) => ({
+    return (summaries as any[]).map((summary: any) => ({
       id: summary.id,
       name: summary.name,
       date: summary.date,
@@ -165,11 +165,11 @@ export async function saveLobby(lobby: Lobby): Promise<void> {
       }));
 
     // Single RPC call handles everything in one transaction
-    const { error } = await supabase.rpc('save_lobby_tx', {
+    const { error } = await supabase.rpc('save_lobby_tx' as any, {
       p_lobby: lobbyData,
       p_teams: teamsData,
       p_matches: matchesData,
-    });
+    } as any);
 
     if (error) throw error;
   } catch (error) {
@@ -187,7 +187,7 @@ export async function updateMatch(lobbyId: string, matchId: string, results: Mat
 
     // Delete existing match results
     const { error: deleteError } = await supabase
-      .from('match_results')
+      .from('match_results' as any)
       .delete()
       .eq('match_id', matchId);
 
@@ -204,15 +204,15 @@ export async function updateMatch(lobbyId: string, matchId: string, results: Mat
       }));
 
       const { error: insertError } = await supabase
-        .from('match_results')
-        .insert(resultRows);
+        .from('match_results' as any)
+        .insert(resultRows as any);
 
       if (insertError) throw insertError;
     }
 
     // Update lobby's updated_at timestamp
-    const { error: updateError } = await supabase
-      .from('lobbies')
+    const { error: updateError } = await (supabase
+      .from('lobbies' as any) as any)
       .update({ updated_at: new Date().toISOString() })
       .eq('id', lobbyId);
 
@@ -229,8 +229,8 @@ export async function updateMatch(lobbyId: string, matchId: string, results: Mat
 export async function deleteLobby(id: string): Promise<void> {
   try {
     const supabase = supabaseBrowser();
-    const { error } = await supabase
-      .from('lobbies')
+    const { error } = await (supabase
+      .from('lobbies' as any) as any)
       .delete()
       .eq('id', id);
 
@@ -249,17 +249,17 @@ export async function getLobbiesByDate(date: string): Promise<Lobby[]> {
     const supabase = supabaseBrowser();
     
     // Only fetch essential columns for list view
-    const { data: lobbyRows, error: lobbyError } = await supabase
-      .from('lobbies')
+    const { data: lobbyRows, error: lobbyError } = await (supabase
+      .from('lobbies' as any) as any)
       .select('id,name,date,status,matches_count,registered_teams,playing_teams,created_at')
       .eq('date', date)
       .order('created_at', { ascending: false });
 
     if (lobbyError) throw lobbyError;
-    if (!lobbyRows) return [];
+    if (!lobbyRows || !Array.isArray(lobbyRows) || (lobbyRows as any[]).length === 0) return [];
 
     // Return lightweight versions (full details loaded on-demand)
-    return lobbyRows.map(row => ({
+    return (lobbyRows as any[]).map((row: any) => ({
       id: row.id,
       name: row.name,
       date: row.date,

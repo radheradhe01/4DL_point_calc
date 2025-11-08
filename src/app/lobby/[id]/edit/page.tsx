@@ -102,7 +102,7 @@ export default function EditLobbyPage() {
     if (playingTeams > registeredTeams) {
       setPlayingTeams(registeredTeams);
     }
-  }, [registeredTeams, playingTeams]);
+  }, [registeredTeams, playingTeams, teams.length]);
 
   // Ensure playingTeams doesn't exceed registeredTeams
   useEffect(() => {
