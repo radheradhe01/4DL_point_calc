@@ -1,64 +1,82 @@
 {
   "template1": {
-    "headerBg": "#0a7832",
+    "headerBg": "#2a532e",
     "headerText": "#FFFFFF",
-    "totalBg": "#748b6a",
-    "totalFg": "#000000",
-    "winsBg": "#E63946",
+    "totalBg": "#5e3b75",
+    "totalFg": "#FFFFFF",
+    "winsBg": "#2a532e",
     "winsFg": "#FFFFFF",
     "text": "#FFFFFF"
   },
   "template2": {
-    "headerBg": "#5d3924",
+    "headerBg": "#cec6b4",
+    "headerText": "#000000",
+    "totalBg": "#95b3ba",
+    "totalFg": "#000000",
+    "winsBg": "#cec6b4",
+    "winsFg": "#000000",
+    "text": "#FFFFFF"
+  },
+  "template3": {
+    "headerBg": "#f6f08d",
+    "headerText": "#000000",
+    "totalBg": "#5eb0f2",
+    "totalFg": "#000000",
+    "winsBg": "#f6f08d",
+    "winsFg": "#000000",
+    "text": "#FFFFFF"
+  },
+  "template4": {
+    "headerBg": "#274d2b",
     "headerText": "#FFFFFF",
-    "totalBg": "#8f6b56",
+    "totalBg": "#59386f",
+    "totalFg": "#FFFFFF",
+    "winsBg": "#274d2b",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template5": {
+    "headerBg": "#146aae",
+    "headerText": "#FFFFFF",
+    "totalBg": "#dc1925",
     "totalFg": "#FFFFFF",
     "winsBg": "#146aae",
     "winsFg": "#FFFFFF",
     "text": "#FFFFFF"
   },
-  "template4": {
-    "headerBg": "#9b122f",
+  "template6": {
+    "headerBg": "#71241d",
     "headerText": "#FFFFFF",
-    "totalBg": "#f6f08d",
+    "totalBg": "#279a6a",
     "totalFg": "#000000",
-    "winsBg": "#572f4e",
-    "winsFg": "#FFFFFF",
-    "text": "#FFFFFF"
-  },
-  "template5": {
-    "headerBg": "#0a7832",
-    "headerText": "#FFFFFF",
-    "totalBg": "#3caa64",
-    "totalFg": "#000000",
-    "winsBg": "#E63946",
+    "winsBg": "#71241d",
     "winsFg": "#FFFFFF",
     "text": "#FFFFFF"
   },
   "template7": {
-    "headerBg": "#0a5198",
+    "headerBg": "#2c343c",
     "headerText": "#FFFFFF",
-    "totalBg": "#c1dcd9",
-    "totalFg": "#000000",
-    "winsBg": "#4f5c36",
+    "totalBg": "#594242",
+    "totalFg": "#FFFFFF",
+    "winsBg": "#2c343c",
     "winsFg": "#FFFFFF",
     "text": "#FFFFFF"
   },
   "template8": {
-    "headerBg": "#71241d",
+    "headerBg": "#be3811",
     "headerText": "#FFFFFF",
-    "totalBg": "#eec78a",
+    "totalBg": "#18eab0",
     "totalFg": "#000000",
-    "winsBg": "#146aae",
+    "winsBg": "#be3811",
     "winsFg": "#FFFFFF",
     "text": "#FFFFFF"
   },
   "template9": {
-    "headerBg": "#6a1e24",
+    "headerBg": "#253756",
     "headerText": "#FFFFFF",
-    "totalBg": "#83848c",
-    "totalFg": "#000000",
-    "winsBg": "#146aae",
+    "totalBg": "#7a3e34",
+    "totalFg": "#FFFFFF",
+    "winsBg": "#253756",
     "winsFg": "#FFFFFF",
     "text": "#FFFFFF"
   },

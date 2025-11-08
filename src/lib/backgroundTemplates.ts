@@ -52,18 +52,22 @@ export async function getBackgroundTemplates(): Promise<BackgroundTemplate[]> {
     const templates: BackgroundTemplate[] = [];
     
     for (const [baseName, files] of templatesMap.entries()) {
-      // Only include templates that have both full and preview images
-      if (files.full && files.preview) {
+      // Include templates that have a full image (preview is optional)
+      if (files.full) {
         // Generate a readable name from the base name
         const name = baseName
           .split(/[-_]/)
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
         
+        // Use preview if available, otherwise fallback to full image
+        // Next.js Image component will optimize it automatically
+        const previewFile = files.preview || files.full;
+        
         templates.push({
           id: baseName,
           name: name,
-          previewUrl: `/backgrounds/${files.preview}`,
+          previewUrl: `/backgrounds/${previewFile}`,
           imageUrl: `/backgrounds/${files.full}`,
           description: `${name} background template`,
         });

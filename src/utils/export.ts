@@ -180,8 +180,8 @@ export function exportDailySummary(lobbies: Lobby[], date: string): void {
  */
 export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
   try {
-    // 7:10 aspect ratio (height:width) - e.g., 1400px width = 2000px height
-    const templateWidth = 1400;
+    // 3:4 aspect ratio (width:height) - e.g., 1500px width = 2000px height
+    const templateWidth = 1500;
     const templateHeight = 2000;
     
     // Create a temporary container
@@ -257,25 +257,32 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     // Wait for layout to fully settle
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Ensure template element has exact 7:10 dimensions
-    // Preserve padding (60px 40px) set in component for proper spacing
+    // CRITICAL: Force exact 3:4 dimensions - prevent content from shrinking
+    // Use minWidth/minHeight to ensure element never shrinks below target size
     templateElement.style.width = `${templateWidth}px`;
     templateElement.style.height = `${templateHeight}px`;
+    templateElement.style.minWidth = `${templateWidth}px`;
+    templateElement.style.minHeight = `${templateHeight}px`;
+    templateElement.style.maxWidth = `${templateWidth}px`;
+    templateElement.style.maxHeight = `${templateHeight}px`;
     templateElement.style.margin = '0';
-    // Don't override padding - let component's padding (60px 40px) remain
+    templateElement.style.padding = '60px 40px'; // Explicit padding to match component
     templateElement.style.boxSizing = 'border-box';
-    templateElement.style.overflow = 'hidden';
-    templateElement.style.display = 'flex'; // Keep flexbox layout
+    templateElement.style.overflow = 'visible'; // Allow content to be visible
+    templateElement.style.display = 'flex';
     templateElement.style.flexDirection = 'column';
     templateElement.style.justifyContent = 'space-between';
     templateElement.style.alignItems = 'center';
+    templateElement.style.flexShrink = '0'; // Prevent flex shrinking
 
     // Update container to match exactly
     container.style.width = `${templateWidth}px`;
     container.style.height = `${templateHeight}px`;
+    container.style.minWidth = `${templateWidth}px`;
+    container.style.minHeight = `${templateHeight}px`;
     container.style.margin = '0';
     container.style.padding = '0';
-    container.style.overflow = 'hidden';
+    container.style.overflow = 'visible'; // Changed from hidden to visible
     container.style.boxSizing = 'border-box';
 
     // Update background div to match exact dimensions
@@ -283,15 +290,30 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     if (backgroundDiv) {
       backgroundDiv.style.width = `${templateWidth}px`;
       backgroundDiv.style.height = `${templateHeight}px`;
+      backgroundDiv.style.minWidth = `${templateWidth}px`;
+      backgroundDiv.style.minHeight = `${templateHeight}px`;
       backgroundDiv.style.margin = '0';
       backgroundDiv.style.padding = '0';
       backgroundDiv.style.boxSizing = 'border-box';
+      backgroundDiv.style.position = 'absolute';
+      backgroundDiv.style.top = '0';
+      backgroundDiv.style.left = '0';
     }
 
-    // Wait for all dimension changes to apply
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Ensure all flex children don't shrink
+    const flexChildren = templateElement.querySelectorAll('header, footer, #leaderboard-table-container');
+    flexChildren.forEach((child) => {
+      (child as HTMLElement).style.flexShrink = '0';
+    });
 
-    // Convert to PNG with fixed 7:10 dimensions
+    // Wait for all dimension changes to apply and force reflow
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Force a reflow to ensure dimensions are applied
+    void templateElement.offsetHeight;
+
+    // Convert to PNG - let html-to-image read the actual computed dimensions
+    // But explicitly set width/height to ensure correct output
     const dataUrl = await toPng(templateElement, {
       quality: 1.0,
       pixelRatio: 2, // Higher resolution

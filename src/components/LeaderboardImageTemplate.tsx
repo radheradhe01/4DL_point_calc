@@ -36,9 +36,9 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
     return rank.toString().padStart(2, '0');
   };
 
-  // 7:10 aspect ratio (height:width) - e.g., 1400px width = 2000px height
+  // 3:4 aspect ratio (width:height) - e.g., 1500px width = 2000px height
   // This ensures consistent portrait orientation for all exports
-  const templateWidth = '1400px';
+  const templateWidth = '1500px';
   const templateHeight = '2000px';
 
   return (
@@ -47,6 +47,10 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
       style={{
         width: templateWidth,
         height: templateHeight,
+        minWidth: templateWidth, // Prevent shrinking
+        minHeight: templateHeight, // Prevent shrinking
+        maxWidth: templateWidth, // Prevent expanding
+        maxHeight: templateHeight, // Prevent expanding
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between', // Distributes header, table, footer evenly
@@ -57,6 +61,7 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
         backgroundColor: '#000000', // Fallback background
         boxSizing: 'border-box',
         padding: '60px 40px', // Safe padding zones
+        flexShrink: 0, // Prevent flex parent from shrinking this
       }}
     >
       {/* Background Image or Black Background */}
@@ -180,32 +185,45 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
         </div>
       </header>
 
-      {/* Leaderboard Table - Flexbox will position in middle */}
+      {/* Leaderboard Table - Modern Glassmorphism Design */}
       <div
         id="leaderboard-table-container"
         style={{
-          backgroundColor: '#2D2D2D',
-          borderRadius: '12px',
-          padding: '20px',
+          backgroundColor: 'rgba(0, 0, 0, 0.55)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          borderRadius: '16px',
+          padding: '24px 32px',
           width: 'fit-content',
-          maxWidth: 'calc(100% - 80px)', // Responsive to padding
+          maxWidth: 'calc(100% - 80px)',
           margin: '0 auto',
-          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.5)',
+          boxShadow: `
+            0 8px 32px rgba(0, 0, 0, 0.6),
+            0 0 0 1px rgba(255, 255, 255, 0.05),
+            inset 0 1px 2px rgba(255, 255, 255, 0.08)
+          `,
+          border: `1px solid rgba(255, 255, 255, 0.1)`,
           position: 'relative',
           zIndex: 1,
           flexShrink: 0,
         }}
       >
-          {/* Table Header */}
+          {/* Table Header - Modern Gradient Design */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: '80px 300px 80px 100px 100px 100px 80px',
-              gap: '10px',
-              marginBottom: '15px',
-              padding: '12px 10px',
-              backgroundColor: theme.headerBg,
-              borderRadius: '6px',
+              gap: '12px',
+              marginBottom: '16px',
+              padding: '14px 12px',
+              background: `linear-gradient(135deg, ${theme.headerBg} 0%, ${theme.headerBg}dd 50%, ${theme.headerBg}aa 100%)`,
+              borderRadius: '10px',
+              borderTop: `2px solid ${theme.headerBg}`,
+              boxShadow: `
+                0 4px 12px rgba(0, 0, 0, 0.4),
+                0 0 8px 2px ${theme.headerBg}40,
+                inset 0 1px 0 rgba(255, 255, 255, 0.1)
+              `,
             }}
           >
             {['POS', 'TEAM NAME', 'MATCH', 'PLACE', 'FINISH', 'TOTAL', 'WINS'].map((header) => (
@@ -213,10 +231,12 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 key={header}
                 style={{
                   color: theme.headerText,
-                  fontSize: '18px',
-                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  fontWeight: '700',
                   textTransform: 'uppercase',
                   textAlign: header === 'TEAM NAME' ? 'left' : 'center',
+                  letterSpacing: '0.05em',
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
                 }}
               >
                 {header}
@@ -224,121 +244,145 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
             ))}
           </div>
 
-          {/* Table Rows */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {leaderboard.map((entry) => (
+          {/* Table Rows - Modern Accent-Based Design */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {leaderboard.map((entry, index) => (
               <div
                 key={entry.teamId}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '80px 300px 80px 100px 100px 100px 80px',
-                  gap: '10px',
+                  gap: '12px',
                   alignItems: 'center',
+                  backgroundColor: 'rgba(18, 18, 18, 0.7)',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  boxShadow: `
+                    0 2px 8px rgba(0, 0, 0, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.05)
+                  `,
                 }}
               >
-                {/* Position */}
+                {/* Position - Accent Border */}
                 <div
                   style={{
-                    backgroundColor: theme.headerBg,
+                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
                     color: theme.headerText,
                     padding: '10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '20px',
-                    fontWeight: 'bold',
+                    fontWeight: '700',
                     textAlign: 'center',
+                    borderLeft: `4px solid ${theme.headerBg}`,
+                    boxShadow: `0 0 8px ${theme.headerBg}30`,
+                    letterSpacing: '0.05em',
                   }}
                 >
                   {formatPosition(entry.rank)}
                 </div>
 
-                {/* Team Name */}
+                {/* Team Name - Accent Border */}
                 <div
                   style={{
-                    backgroundColor: theme.winsBg,
-                    color: theme.winsFg,
+                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+                    color: '#FFFFFF',
                     padding: '10px 15px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '18px',
                     fontWeight: '600',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    borderLeft: `4px solid ${theme.winsBg}`,
+                    boxShadow: `0 0 8px ${theme.winsBg}20`,
                   }}
                   title={entry.teamName}
                 >
                   {entry.teamName}
                 </div>
 
-                {/* Match */}
+                {/* Match - Neutral with subtle accent */}
                 <div
                   style={{
-                    backgroundColor: theme.winsBg,
-                    color: theme.winsFg,
+                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+                    color: '#FFFFFF',
                     padding: '10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
+                    borderLeft: '4px solid rgba(255, 255, 255, 0.15)',
                   }}
                 >
                   {entry.matchesPlayed}
                 </div>
 
-                {/* Place (Placement Points) */}
+                {/* Place (Placement Points) - Neutral */}
                 <div
                   style={{
-                    backgroundColor: theme.winsBg,
-                    color: theme.winsFg,
+                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+                    color: '#FFFFFF',
                     padding: '10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
+                    borderLeft: '4px solid rgba(255, 255, 255, 0.15)',
                   }}
                 >
                   {entry.totalPlacementPoints}
                 </div>
 
-                {/* Finish (Kill Points) */}
+                {/* Finish (Kill Points) - Neutral */}
                 <div
                   style={{
-                    backgroundColor: theme.winsBg,
-                    color: theme.winsFg,
+                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+                    color: '#FFFFFF',
                     padding: '10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
+                    borderLeft: '4px solid rgba(255, 255, 255, 0.15)',
                   }}
                 >
                   {entry.totalKills}
                 </div>
 
-                {/* Total */}
+                {/* Total - Highlight with Glow */}
                 <div
                   style={{
-                    backgroundColor: theme.totalBg,
+                    background: `linear-gradient(135deg, ${theme.totalBg}dd 0%, ${theme.totalBg}aa 100%)`,
                     color: theme.totalFg,
                     padding: '10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '20px',
-                    fontWeight: 'bold',
+                    fontWeight: '700',
                     textAlign: 'center',
+                    border: `1px solid ${theme.totalBg}`,
+                    boxShadow: `
+                      0 0 12px ${theme.totalBg}50,
+                      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+                    `,
+                    letterSpacing: '0.03em',
                   }}
                 >
                   {entry.totalPoints}
                 </div>
 
-                {/* Wins */}
+                {/* Wins - Accent Border */}
                 <div
                   style={{
-                    backgroundColor: theme.winsBg,
+                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
                     color: theme.winsFg,
                     padding: '10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
+                    borderLeft: `4px solid ${theme.winsBg}`,
+                    boxShadow: `0 0 8px ${theme.winsBg}30`,
                   }}
                 >
                   {entry.booyahs}
