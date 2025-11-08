@@ -59,16 +59,16 @@ export default function NewLobbyPage() {
   useEffect(() => {
     if (registeredTeams > teams.length) {
       // Add empty slots
-      setTeams([...teams, ...Array(registeredTeams - teams.length).fill('')]);
+      setTeams(prevTeams => [...prevTeams, ...Array(registeredTeams - prevTeams.length).fill('')]);
     } else if (registeredTeams < teams.length) {
       // Remove extra slots
-      setTeams(teams.slice(0, registeredTeams));
+      setTeams(prevTeams => prevTeams.slice(0, registeredTeams));
     }
     // Ensure playingTeams doesn't exceed registeredTeams
     if (playingTeams > registeredTeams) {
       setPlayingTeams(registeredTeams);
     }
-  }, [registeredTeams]);
+  }, [registeredTeams, playingTeams]);
 
   // Ensure playingTeams doesn't exceed registeredTeams
   useEffect(() => {

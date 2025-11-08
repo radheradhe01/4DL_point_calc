@@ -69,7 +69,7 @@ export function calculateLeaderboard(
     match.results.forEach(result => {
       teamsInMatch.add(result.teamId);
       const stats = teamStats.get(result.teamId);
-      if (stats) {
+      if (stats && result.placement !== null) {
         const placementPoints = getPlacementPoints(result.placement);
         // Recalculate points to ensure accuracy (placement points + kills)
         const matchPoints = placementPoints + result.kills;
