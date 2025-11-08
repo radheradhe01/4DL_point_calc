@@ -58,6 +58,15 @@ export default function EditMatchModal({ match, teams, playingTeams, isOpen, onC
   };
 
   const handlePlacementChange = (teamId: string, newPlacement: string) => {
+    // Handle "NOT_PLAYED" option
+    if (newPlacement === 'NOT_PLAYED') {
+      setResults(prev => ({
+        ...prev,
+        [teamId]: { ...prev[teamId], placement: null, kills: 0 }, // Reset kills to 0 when not played
+      }));
+      return;
+    }
+    
     const placementValue = newPlacement === '' ? null : parseInt(newPlacement);
     const assignedPlacements = getAssignedPlacements(teamId);
     
@@ -111,42 +120,50 @@ export default function EditMatchModal({ match, teams, playingTeams, isOpen, onC
     e.preventDefault();
     setErrors([]);
     
-    // Validate that all playing teams have placements assigned
-    const placements = playingTeamsList
+    // Get teams that actually played (have a placement)
+    const teamsPlayed = playingTeamsList.filter(team => results[team.id]?.placement !== null);
+    
+    // Validate that at least one team played
+    if (teamsPlayed.length === 0) {
+      setErrors(['At least one team must have a placement assigned. Teams can choose "NOT Played" if they did not participate.']);
+      return;
+    }
+    
+    // Validate that all placements are unique (among teams that played)
+    const placements = teamsPlayed
       .map(team => results[team.id]?.placement)
       .filter((p): p is number => p !== null);
     
-    if (placements.length !== actualPlayingTeams) {
-      setErrors([`All ${actualPlayingTeams} playing teams must have a placement assigned.`]);
-      return;
-    }
-    
-    // Validate that all placements are unique (1 to playingTeams)
     const uniquePlacements = new Set(placements);
     if (uniquePlacements.size !== placements.length) {
-      setErrors([`Each team must have a unique placement (1-${actualPlayingTeams}).`]);
+      setErrors(['Each team must have a unique placement. Please ensure all placements are different.']);
       return;
     }
 
-    // Validate that all placements from 1 to playingTeams are present
+    // Validate that placements are sequential starting from 1 (no gaps allowed)
     const sortedPlacements = [...placements].sort((a, b) => a - b);
-    const missingPlacements: number[] = [];
-    for (let i = 1; i <= actualPlayingTeams; i++) {
-      if (!sortedPlacements.includes(i)) {
-        missingPlacements.push(i);
-      }
-    }
+    const expectedPlacements = Array.from({ length: teamsPlayed.length }, (_, i) => i + 1);
+    const hasSequentialPlacements = sortedPlacements.length === expectedPlacements.length &&
+      sortedPlacements.every((val, idx) => val === expectedPlacements[idx]);
     
-    if (missingPlacements.length > 0) {
-      setErrors([`Missing placements: ${missingPlacements.join(', ')}. All placements from 1-${actualPlayingTeams} must be assigned.`]);
+    if (!hasSequentialPlacements) {
+      setErrors([`Placements must be sequential starting from 1. If ${teamsPlayed.length} teams played, they should have placements 1-${teamsPlayed.length}.`]);
       return;
     }
 
+    // Include all teams (both played and not played)
     const matchResults: MatchResult[] = playingTeamsList.map(team => {
       const result = results[team.id];
       if (result.placement === null) {
-        throw new Error('Placement cannot be null at this point');
+        // Team did not play - return with null placement, 0 kills, 0 points
+        return {
+          teamId: team.id,
+          placement: null,
+          kills: 0,
+          points: 0,
+        };
       }
+      // Team played - calculate points
       return {
         teamId: team.id,
         placement: result.placement,
@@ -219,16 +236,15 @@ export default function EditMatchModal({ match, teams, playingTeams, isOpen, onC
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">Placement</label>
                       <select
-                        value={result.placement ?? ''}
+                        value={result.placement === null ? 'NOT_PLAYED' : result.placement.toString()}
                         onChange={(e) => handlePlacementChange(team.id, e.target.value)}
                         className={`w-full px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 ${
                           result.placement === null
-                            ? 'border-red-300 bg-red-50'
+                            ? 'border-gray-300 bg-gray-50'
                             : 'border-gray-300 bg-white'
                         }`}
-                        required
                       >
-                        <option value="">Select</option>
+                        <option value="NOT_PLAYED">NOT Played</option>
                         {placementOptions.map((place) => {
                           const isTaken = assignedPlacements.has(place);
                           const teamWithPlacement = isTaken 
@@ -254,8 +270,10 @@ export default function EditMatchModal({ match, teams, playingTeams, isOpen, onC
                         min="0"
                         value={result.kills}
                         onChange={(e) => handleKillsChange(team.id, parseInt(e.target.value) || 0)}
-                        className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
-                        required
+                        disabled={result.placement === null}
+                        className={`w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white ${
+                          result.placement === null ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                       />
                     </div>
                   </div>
@@ -294,16 +312,15 @@ export default function EditMatchModal({ match, teams, playingTeams, isOpen, onC
                   </div>
                   <div className="col-span-2">
                     <select
-                      value={result.placement ?? ''}
+                      value={result.placement === null ? 'NOT_PLAYED' : result.placement.toString()}
                       onChange={(e) => handlePlacementChange(team.id, e.target.value)}
                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 ${
                         result.placement === null
-                          ? 'border-red-300 bg-red-50'
+                          ? 'border-gray-300 bg-gray-50'
                           : 'border-gray-300 bg-white'
                       }`}
-                      required
                     >
-                      <option value="">Select</option>
+                      <option value="NOT_PLAYED">NOT Played</option>
                       {placementOptions.map((place) => {
                         const isTaken = assignedPlacements.has(place);
                         const teamWithPlacement = isTaken 
@@ -328,8 +345,10 @@ export default function EditMatchModal({ match, teams, playingTeams, isOpen, onC
                       min="0"
                       value={result.kills}
                       onChange={(e) => handleKillsChange(team.id, parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
-                      required
+                      disabled={result.placement === null}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white ${
+                        result.placement === null ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                   </div>
                   <div className="col-span-3 text-sm font-semibold text-blue-600">

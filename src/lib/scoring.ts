@@ -65,11 +65,10 @@ export function calculateLeaderboard(
 
   // Aggregate stats from all matches
   matches.forEach(match => {
-    const teamsInMatch = new Set<string>();
     match.results.forEach(result => {
-      teamsInMatch.add(result.teamId);
       const stats = teamStats.get(result.teamId);
       if (stats && result.placement !== null) {
+        // Team played in this match - count stats
         const placementPoints = getPlacementPoints(result.placement);
         // Recalculate points to ensure accuracy (placement points + kills)
         const matchPoints = placementPoints + result.kills;
@@ -79,14 +78,10 @@ export function calculateLeaderboard(
         if (result.placement === 1) {
           stats.booyahs += 1;
         }
-      }
-    });
-    // Increment matches played for each team in this match
-    teamsInMatch.forEach(teamId => {
-      const stats = teamStats.get(teamId);
-      if (stats) {
+        // Only increment matches played if team actually played (placement is not null)
         stats.matchesPlayed += 1;
       }
+      // If placement is null, team didn't play - don't count anything
     });
   });
 

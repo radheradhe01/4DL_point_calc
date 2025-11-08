@@ -64,9 +64,12 @@ export default function MatchHistory({ matches, teams, onEditMatch }: MatchHisto
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span className="text-base font-medium flex-shrink-0">
-                          {result.placement === 1 ? '🥇' : result.placement === 2 ? '🥈' : result.placement === 3 ? '🥉' : result.placement}
+                          {result.placement === null ? '-' : result.placement === 1 ? '🥇' : result.placement === 2 ? '🥈' : result.placement === 3 ? '🥉' : result.placement}
                         </span>
-                        <span className="text-xs font-medium text-gray-900 truncate">{teamName}</span>
+                        <span className="text-xs font-medium text-gray-900 truncate">
+                          {teamName}
+                          {result.placement === null && <span className="text-gray-500 ml-1">(Not Played)</span>}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-gray-600">{result.kills}K</span>
@@ -103,9 +106,12 @@ export default function MatchHistory({ matches, teams, onEditMatch }: MatchHisto
                         className="grid grid-cols-12 gap-2 text-sm py-1 hover:bg-gray-50 rounded"
                       >
                         <div className="col-span-1 font-medium">
-                          {result.placement === 1 ? '🥇' : result.placement === 2 ? '🥈' : result.placement === 3 ? '🥉' : result.placement}
+                          {result.placement === null ? '-' : result.placement === 1 ? '🥇' : result.placement === 2 ? '🥈' : result.placement === 3 ? '🥉' : result.placement}
                         </div>
-                        <div className="col-span-5 text-gray-900">{teamName}</div>
+                        <div className="col-span-5 text-gray-900">
+                          {teamName}
+                          {result.placement === null && <span className="text-xs text-gray-500 ml-2">(Not Played)</span>}
+                        </div>
                         <div className="col-span-2 text-right text-gray-600">{result.kills}</div>
                         <div className="col-span-2 text-right text-gray-600">{placementPoints}</div>
                         <div className="col-span-2 text-right font-semibold text-blue-600">{result.points}</div>

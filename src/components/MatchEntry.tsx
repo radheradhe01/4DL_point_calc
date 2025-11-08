@@ -48,6 +48,15 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
   };
 
   const handlePlacementChange = (teamId: string, newPlacement: string) => {
+    // Handle "NOT_PLAYED" option
+    if (newPlacement === 'NOT_PLAYED') {
+      setResults(prev => ({
+        ...prev,
+        [teamId]: { ...prev[teamId], placement: null, kills: 0 }, // Reset kills to 0 when not played
+      }));
+      return;
+    }
+    
     const placementValue = newPlacement === '' ? null : parseInt(newPlacement);
     const assignedPlacements = getAssignedPlacements(teamId);
     
@@ -99,42 +108,51 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
     // Only validate playing teams
     const playingTeamsList = teams.slice(0, actualPlayingTeams);
     
-    // Validate that all playing teams have placements assigned
-    const placements = playingTeamsList
+    // Get teams that actually played (have a placement)
+    const teamsPlayed = playingTeamsList.filter(team => results[team.id]?.placement !== null);
+    
+    // Validate that at least one team played
+    if (teamsPlayed.length === 0) {
+      alert('Error: At least one team must have a placement assigned. Teams can choose "NOT Played" if they did not participate.');
+      return;
+    }
+    
+    // Validate that all placements are unique (among teams that played)
+    const placements = teamsPlayed
       .map(team => results[team.id]?.placement)
       .filter((p): p is number => p !== null);
     
-    if (placements.length !== actualPlayingTeams) {
-      alert(`Error: All ${actualPlayingTeams} playing teams must have a placement assigned. Please assign placements to all teams.`);
-      return;
-    }
-    
-    // Validate that all placements are unique (1 to playingTeams)
     const uniquePlacements = new Set(placements);
     if (uniquePlacements.size !== placements.length) {
-      alert(`Error: Each team must have a unique placement (1-${actualPlayingTeams}). Please ensure all placements are different.`);
+      alert(`Error: Each team must have a unique placement. Please ensure all placements are different.`);
       return;
     }
 
-    // Validate that all placements from 1 to playingTeams are present
+    // Validate that placements are sequential starting from 1 (no gaps allowed)
+    // For example, if 3 teams played, they should have placements 1, 2, 3
     const sortedPlacements = [...placements].sort((a, b) => a - b);
-    const missingPlacements: number[] = [];
-    for (let i = 1; i <= actualPlayingTeams; i++) {
-      if (!sortedPlacements.includes(i)) {
-        missingPlacements.push(i);
-      }
-    }
+    const expectedPlacements = Array.from({ length: teamsPlayed.length }, (_, i) => i + 1);
+    const hasSequentialPlacements = sortedPlacements.length === expectedPlacements.length &&
+      sortedPlacements.every((val, idx) => val === expectedPlacements[idx]);
     
-    if (missingPlacements.length > 0) {
-      alert(`Error: Missing placements: ${missingPlacements.join(', ')}. All placements from 1-${actualPlayingTeams} must be assigned.`);
+    if (!hasSequentialPlacements) {
+      alert(`Error: Placements must be sequential starting from 1. If ${teamsPlayed.length} teams played, they should have placements 1-${teamsPlayed.length}.`);
       return;
     }
 
+    // Include all teams (both played and not played)
     const matchResults: MatchResult[] = playingTeamsList.map(team => {
       const result = results[team.id];
       if (result.placement === null) {
-        throw new Error('Placement cannot be null at this point');
+        // Team did not play - return with null placement, 0 kills, 0 points
+        return {
+          teamId: team.id,
+          placement: null,
+          kills: 0,
+          points: 0,
+        };
       }
+      // Team played - calculate points
       return {
         teamId: team.id,
         placement: result.placement,
@@ -164,13 +182,15 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
   // Generate placement options dynamically based on playing teams
   const placementOptions = Array.from({ length: actualPlayingTeams }, (_, i) => i + 1);
   
-  // Get all assigned placements for summary
+  // Get all assigned placements for summary (only teams that played)
   const allPlacements = Object.values(results)
     .map(r => r.placement)
     .filter((p): p is number => p !== null);
-  const isAllPlacementsUnique = allPlacements.length === actualPlayingTeams && new Set(allPlacements).size === actualPlayingTeams;
-  const hasAllPlacements = allPlacements.length === actualPlayingTeams && 
-    [...allPlacements].sort((a, b) => a - b).every((val, idx) => val === idx + 1);
+  const teamsPlayed = allPlacements.length;
+  const isAllPlacementsUnique = teamsPlayed > 0 && new Set(allPlacements).size === teamsPlayed;
+  const sortedPlacements = [...allPlacements].sort((a, b) => a - b);
+  const hasSequentialPlacements = teamsPlayed > 0 && 
+    sortedPlacements.every((val, idx) => val === idx + 1);
 
   // Calculate cumulative points for each team (previous matches + current match)
   const getCumulativePoints = (teamId: string): number => {
@@ -200,13 +220,17 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
           Match {currentMatchNumber} Entry
         </h2>
         <div className="text-xs sm:text-sm">
-          {hasAllPlacements && isAllPlacementsUnique ? (
+          {hasSequentialPlacements && isAllPlacementsUnique ? (
             <span className="inline-block px-2 sm:px-3 py-1 bg-green-100 text-green-800 rounded-full font-semibold">
-              ✓ All placements assigned (1-{actualPlayingTeams})
+              ✓ Ready to save ({teamsPlayed} team{teamsPlayed !== 1 ? 's' : ''} played)
+            </span>
+          ) : teamsPlayed === 0 ? (
+            <span className="inline-block px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full font-semibold">
+              ⚠ At least one team must play
             </span>
           ) : (
             <span className="inline-block px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full font-semibold">
-              ⚠ Ensure all placements are unique (1-{actualPlayingTeams})
+              ⚠ Placements must be sequential (1-{teamsPlayed})
             </span>
           )}
         </div>
@@ -243,18 +267,17 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Placement</label>
                     <select
-                      value={result.placement ?? ''}
+                      value={result.placement === null ? 'NOT_PLAYED' : result.placement.toString()}
                       onChange={(e) => handlePlacementChange(team.id, e.target.value)}
                       className={`w-full px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 ${
                         result.placement === null
-                          ? 'border-red-300 bg-red-50'
-                          : isAllPlacementsUnique && hasAllPlacements
+                          ? 'border-gray-300 bg-gray-50'
+                          : hasSequentialPlacements && isAllPlacementsUnique
                           ? 'border-green-300 bg-green-50'
                           : 'border-gray-300 bg-white'
                       }`}
-                      required
                     >
-                      <option value="">Select</option>
+                      <option value="NOT_PLAYED">NOT Played</option>
                       {placementOptions.map((place) => {
                         const isTaken = assignedPlacements.has(place);
                         const teamWithPlacement = isTaken 
@@ -273,7 +296,7 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                       })}
                     </select>
                     {result.placement === null && (
-                      <p className="text-xs text-red-600 mt-1">Required</p>
+                      <p className="text-xs text-gray-600 mt-1">Team did not play</p>
                     )}
                   </div>
                   
@@ -284,8 +307,10 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                       min="0"
                       value={result.kills}
                       onChange={(e) => handleKillsChange(team.id, parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
-                      required
+                      disabled={result.placement === null}
+                      className={`w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white ${
+                        result.placement === null ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                   </div>
                 </div>
@@ -325,19 +350,18 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                 </div>
                 <div className="col-span-2">
                   <select
-                    value={result.placement ?? ''}
+                    value={result.placement === null ? 'NOT_PLAYED' : result.placement.toString()}
                     onChange={(e) => handlePlacementChange(team.id, e.target.value)}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 ${
                       result.placement === null
-                        ? 'border-red-300 bg-red-50'
-                        : isAllPlacementsUnique && hasAllPlacements
+                        ? 'border-gray-300 bg-gray-50'
+                        : hasSequentialPlacements && isAllPlacementsUnique
                         ? 'border-green-300 bg-green-50'
                         : 'border-gray-300 bg-white'
                     }`}
-                    required
                   >
-                    <option value="">Select placement</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((place) => {
+                    <option value="NOT_PLAYED">NOT Played</option>
+                    {placementOptions.map((place) => {
                       const isTaken = assignedPlacements.has(place);
                       const teamWithPlacement = isTaken 
                         ? teams.find(t => t.id !== team.id && results[t.id]?.placement === place)
@@ -355,8 +379,8 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                     })}
                   </select>
                   {result.placement === null && (
-                    <p className="text-xs text-red-600 mt-1">
-                      Placement required
+                    <p className="text-xs text-gray-600 mt-1">
+                      Team did not play
                     </p>
                   )}
                   {result.placement !== null && !isAllPlacementsUnique && (
@@ -371,8 +395,10 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                     min="0"
                     value={result.kills}
                     onChange={(e) => handleKillsChange(team.id, parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
-                    required
+                    disabled={result.placement === null}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white ${
+                      result.placement === null ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                   />
                 </div>
                 <div className="col-span-2">
