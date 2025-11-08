@@ -37,6 +37,7 @@ export interface Lobby {
   teams: Team[];
   matches: Match[];
   createdAt: string;
+  matchesPlayed?: number; // Optional: for lightweight summaries from RPC
 }
 
 export interface LeaderboardEntry {

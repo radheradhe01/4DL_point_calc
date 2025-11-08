@@ -13,7 +13,16 @@ export default function LobbyCard({ lobby, onDelete }: LobbyCardProps) {
   const status = getLobbyStatus(lobby.matches);
   const leaderboard = calculateLeaderboard(lobby.teams, lobby.matches);
   const winner = leaderboard[0];
-  const matchesCompleted = lobby.matches.length;
+  
+  // Use matchesPlayed from summary if available, otherwise count matches array
+  const matchesCompleted = lobby.matchesPlayed !== undefined 
+    ? lobby.matchesPlayed 
+    : lobby.matches.length;
+  
+  // Use teams array length if available, otherwise use playingTeams or registeredTeams
+  const teamsCount = lobby.teams.length > 0 
+    ? lobby.teams.length 
+    : (lobby.playingTeams || lobby.registeredTeams || 0);
 
   const statusColors = {
     not_started: 'bg-gray-100 text-gray-800',
@@ -56,11 +65,11 @@ export default function LobbyCard({ lobby, onDelete }: LobbyCardProps) {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
         <div>
           <span className="text-gray-600">Matches:</span>
-          <span className="ml-2 font-semibold text-gray-900">{matchesCompleted}/6</span>
+          <span className="ml-2 font-semibold text-gray-900">{matchesCompleted}/{lobby.matchesCount || 6}</span>
         </div>
         <div>
           <span className="text-gray-600">Teams:</span>
-          <span className="ml-2 font-semibold text-gray-900">{lobby.teams.length}</span>
+          <span className="ml-2 font-semibold text-gray-900">{teamsCount}</span>
         </div>
         {winner && (
           <div className="col-span-2">

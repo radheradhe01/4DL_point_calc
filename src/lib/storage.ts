@@ -111,6 +111,7 @@ export async function getAllLobbies(): Promise<Lobby[]> {
       teams: [],
       matches: [],
       createdAt: summary.created_at,
+      matchesPlayed: summary.matches_played || 0, // Include matches_played from RPC
     }));
   } catch (error) {
     console.error('Error fetching lobbies from Supabase:', error);
@@ -248,7 +249,7 @@ export async function getLobbiesByDate(date: string): Promise<Lobby[]> {
   try {
     const supabase = supabaseBrowser();
     
-    // Only fetch essential columns for list view
+    // Fetch lobbies for the date
     const { data: lobbyRows, error: lobbyError } = await (supabase
       .from('lobbies' as any) as any)
       .select('id,name,date,status,matches_count,registered_teams,playing_teams,created_at')
@@ -257,6 +258,22 @@ export async function getLobbiesByDate(date: string): Promise<Lobby[]> {
 
     if (lobbyError) throw lobbyError;
     if (!lobbyRows || !Array.isArray(lobbyRows) || (lobbyRows as any[]).length === 0) return [];
+
+    // Fetch matches count for each lobby
+    const lobbyIds = (lobbyRows as any[]).map((row: any) => row.id);
+    const { data: matchesData } = await (supabase
+      .from('matches' as any) as any)
+      .select('lobby_id')
+      .in('lobby_id', lobbyIds);
+
+    // Create a map of lobby_id -> matches count
+    const matchesCountMap = new Map<string, number>();
+    if (matchesData && Array.isArray(matchesData)) {
+      (matchesData as any[]).forEach((match: any) => {
+        const count = matchesCountMap.get(match.lobby_id) || 0;
+        matchesCountMap.set(match.lobby_id, count + 1);
+      });
+    }
 
     // Return lightweight versions (full details loaded on-demand)
     return (lobbyRows as any[]).map((row: any) => ({
@@ -276,6 +293,7 @@ export async function getLobbiesByDate(date: string): Promise<Lobby[]> {
       teams: [],
       matches: [],
       createdAt: row.created_at,
+      matchesPlayed: matchesCountMap.get(row.id) || 0,
     }));
   } catch (error) {
     console.error('Error fetching lobbies by date from Supabase:', error);
