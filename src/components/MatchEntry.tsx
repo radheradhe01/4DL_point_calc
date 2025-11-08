@@ -10,13 +10,17 @@ interface MatchEntryProps {
   previousMatches?: Match[]; // Previous matches to calculate cumulative points
   onSave: (results: MatchResult[]) => void;
   isLoading?: boolean;
+  maxMatches?: number; // Maximum number of matches
+  playingTeams?: number; // Number of teams actually playing
 }
 
-export default function MatchEntry({ teams, currentMatchNumber, previousMatches = [], onSave, isLoading }: MatchEntryProps) {
+export default function MatchEntry({ teams, currentMatchNumber, previousMatches = [], onSave, isLoading, maxMatches = 6, playingTeams }: MatchEntryProps) {
+  const actualPlayingTeams = playingTeams || teams.length;
+  
   const [results, setResults] = useState<Record<string, { placement: number | null; kills: number }>>(() => {
     const initial: Record<string, { placement: number | null; kills: number }> = {};
-    // Initialize with no placements selected
-    teams.forEach((team) => {
+    // Initialize with no placements selected - only for playing teams
+    teams.slice(0, actualPlayingTeams).forEach((team) => {
       initial[team.id] = { placement: null, kills: 0 };
     });
     return initial;
@@ -25,11 +29,12 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
   // Reset form state when match number changes
   useEffect(() => {
     const initial: Record<string, { placement: number | null; kills: number }> = {};
-    teams.forEach((team) => {
+    // Only initialize for playing teams
+    teams.slice(0, actualPlayingTeams).forEach((team) => {
       initial[team.id] = { placement: null, kills: 0 };
     });
     setResults(initial);
-  }, [currentMatchNumber, teams]);
+  }, [currentMatchNumber, teams, actualPlayingTeams]);
 
   // Get currently assigned placements (excluding the current team being edited)
   const getAssignedPlacements = (excludeTeamId?: string): Set<number> => {
@@ -91,38 +96,41 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate that all teams have placements assigned
-    const placements = Object.values(results)
-      .map(r => r.placement)
+    // Only validate playing teams
+    const playingTeamsList = teams.slice(0, actualPlayingTeams);
+    
+    // Validate that all playing teams have placements assigned
+    const placements = playingTeamsList
+      .map(team => results[team.id]?.placement)
       .filter((p): p is number => p !== null);
     
-    if (placements.length !== 12) {
-      alert('Error: All 12 teams must have a placement assigned. Please assign placements to all teams.');
+    if (placements.length !== actualPlayingTeams) {
+      alert(`Error: All ${actualPlayingTeams} playing teams must have a placement assigned. Please assign placements to all teams.`);
       return;
     }
     
-    // Validate that all placements are unique (1-12)
+    // Validate that all placements are unique (1 to playingTeams)
     const uniquePlacements = new Set(placements);
     if (uniquePlacements.size !== placements.length) {
-      alert('Error: Each team must have a unique placement (1-12). Please ensure all placements are different.');
+      alert(`Error: Each team must have a unique placement (1-${actualPlayingTeams}). Please ensure all placements are different.`);
       return;
     }
 
-    // Validate that all placements from 1-12 are present
+    // Validate that all placements from 1 to playingTeams are present
     const sortedPlacements = [...placements].sort((a, b) => a - b);
     const missingPlacements: number[] = [];
-    for (let i = 1; i <= 12; i++) {
+    for (let i = 1; i <= actualPlayingTeams; i++) {
       if (!sortedPlacements.includes(i)) {
         missingPlacements.push(i);
       }
     }
     
     if (missingPlacements.length > 0) {
-      alert(`Error: Missing placements: ${missingPlacements.join(', ')}. All placements from 1-12 must be assigned.`);
+      alert(`Error: Missing placements: ${missingPlacements.join(', ')}. All placements from 1-${actualPlayingTeams} must be assigned.`);
       return;
     }
 
-    const matchResults: MatchResult[] = teams.map(team => {
+    const matchResults: MatchResult[] = playingTeamsList.map(team => {
       const result = results[team.id];
       if (result.placement === null) {
         throw new Error('Placement cannot be null at this point');
@@ -153,12 +161,15 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
   // Sort teams by slot number for display
   const sortedTeams = [...teams].sort((a, b) => a.slotNumber - b.slotNumber);
   
+  // Generate placement options dynamically based on playing teams
+  const placementOptions = Array.from({ length: actualPlayingTeams }, (_, i) => i + 1);
+  
   // Get all assigned placements for summary
   const allPlacements = Object.values(results)
     .map(r => r.placement)
     .filter((p): p is number => p !== null);
-  const isAllPlacementsUnique = allPlacements.length === 12 && new Set(allPlacements).size === 12;
-  const hasAllPlacements = allPlacements.length === 12 && 
+  const isAllPlacementsUnique = allPlacements.length === actualPlayingTeams && new Set(allPlacements).size === actualPlayingTeams;
+  const hasAllPlacements = allPlacements.length === actualPlayingTeams && 
     [...allPlacements].sort((a, b) => a - b).every((val, idx) => val === idx + 1);
 
   // Calculate cumulative points for each team (previous matches + current match)
@@ -191,11 +202,11 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
         <div className="text-xs sm:text-sm">
           {hasAllPlacements && isAllPlacementsUnique ? (
             <span className="inline-block px-2 sm:px-3 py-1 bg-green-100 text-green-800 rounded-full font-semibold">
-              ✓ All placements assigned (1-12)
+              ✓ All placements assigned (1-{actualPlayingTeams})
             </span>
           ) : (
             <span className="inline-block px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full font-semibold">
-              ⚠ Ensure all placements are unique (1-12)
+              ⚠ Ensure all placements are unique (1-{actualPlayingTeams})
             </span>
           )}
         </div>
@@ -204,7 +215,7 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
       <form onSubmit={handleSubmit}>
         {/* Mobile Card View */}
         <div className="block sm:hidden space-y-3">
-          {sortedTeams.map((team) => {
+          {sortedTeams.slice(0, actualPlayingTeams).map((team) => {
             const result = results[team.id];
             const currentMatchPoints = result.placement !== null 
               ? calculateMatchPoints(result.placement, result.kills) 
@@ -244,7 +255,7 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
                       required
                     >
                       <option value="">Select</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((place) => {
+                      {placementOptions.map((place) => {
                         const isTaken = assignedPlacements.has(place);
                         const teamWithPlacement = isTaken 
                           ? teams.find(t => t.id !== team.id && results[t.id]?.placement === place)
@@ -293,7 +304,7 @@ export default function MatchEntry({ teams, currentMatchNumber, previousMatches 
             <div className="col-span-3">Points</div>
           </div>
 
-          {sortedTeams.map((team) => {
+          {sortedTeams.slice(0, actualPlayingTeams).map((team) => {
             const result = results[team.id];
             const currentMatchPoints = result.placement !== null 
               ? calculateMatchPoints(result.placement, result.kills) 

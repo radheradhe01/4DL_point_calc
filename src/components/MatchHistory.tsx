@@ -5,9 +5,10 @@ import { Match, Team } from '@/lib/types';
 interface MatchHistoryProps {
   matches: Match[];
   teams: Team[];
+  onEditMatch?: (match: Match) => void;
 }
 
-export default function MatchHistory({ matches, teams }: MatchHistoryProps) {
+export default function MatchHistory({ matches, teams, onEditMatch }: MatchHistoryProps) {
   const getTeamName = (teamId: string) => {
     return teams.find(t => t.id === teamId)?.name || 'Unknown';
   };
@@ -26,7 +27,7 @@ export default function MatchHistory({ matches, teams }: MatchHistoryProps) {
       <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-gray-900">Match History</h2>
       <div className="space-y-3 sm:space-y-4">
         {matches.map((match) => {
-          const sortedResults = [...match.results].sort((a, b) => a.placement - b.placement);
+          const sortedResults = [...match.results].sort((a, b) => (a.placement ?? 999) - (b.placement ?? 999));
           
           return (
             <div key={match.id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
@@ -34,9 +35,20 @@ export default function MatchHistory({ matches, teams }: MatchHistoryProps) {
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                   Match {match.matchNumber}
                 </h3>
-                <span className="text-xs sm:text-sm text-gray-500">
-                  {new Date(match.createdAt).toLocaleTimeString()}
-                </span>
+                <div className="flex items-center gap-2">
+                  {onEditMatch && (
+                    <button
+                      onClick={() => onEditMatch(match)}
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600 active:bg-yellow-700 transition-colors font-medium"
+                      title="Edit match results"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <span className="text-xs sm:text-sm text-gray-500">
+                    {new Date(match.createdAt).toLocaleTimeString()}
+                  </span>
+                </div>
               </div>
               
               {/* Mobile Card View */}

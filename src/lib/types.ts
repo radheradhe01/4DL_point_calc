@@ -2,12 +2,12 @@ export interface Team {
   id: string;
   lobbyId: string;
   name: string;
-  slotNumber: number; // 1-12
+  slotNumber: number; // 1-N (dynamic based on registeredTeams)
 }
 
 export interface MatchResult {
   teamId: string;
-  placement: number; // 1-12
+  placement: number | null; // 1-N (dynamic based on playingTeams)
   kills: number;
   points: number; // calculated: placement + kills
 }
@@ -15,7 +15,7 @@ export interface MatchResult {
 export interface Match {
   id: string;
   lobbyId: string;
-  matchNumber: number; // 1-6
+  matchNumber: number; // 1-N (dynamic based on matchesCount)
   results: MatchResult[];
   createdAt: string;
 }
@@ -31,9 +31,24 @@ export interface Lobby {
   tournamentStage: string;
   backgroundTemplate?: string; // Template ID instead of image URL
   backgroundImageUrl?: string; // Keep for backward compatibility, but prefer backgroundTemplate
+  matchesCount: number; // Configurable number of matches (default: 6)
+  registeredTeams: number; // Total teams registered (default: 12)
+  playingTeams: number; // Teams actually playing (default: 12, <= registeredTeams)
   teams: Team[];
   matches: Match[];
   createdAt: string;
+}
+
+export interface LeaderboardEntry {
+  teamId: string;
+  teamName: string;
+  totalPoints: number;
+  booyahs: number; // count of 1st place finishes (Wins)
+  totalKills: number; // Kill points
+  totalPlacementPoints: number; // Placement points
+  rank: number;
+  slotNumber: number;
+  matchesPlayed: number; // Number of matches played
 }
 
 export interface LeaderboardEntry {

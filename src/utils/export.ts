@@ -9,7 +9,8 @@ import LeaderboardImageTemplate from '@/components/LeaderboardImageTemplate';
  * Export lobby data to CSV format
  */
 export function exportLobbyToCSV(lobby: Lobby): void {
-  const leaderboard = calculateLeaderboard(lobby.teams, lobby.matches);
+  const playingTeams = lobby.teams.slice(0, lobby.playingTeams || lobby.teams.length);
+  const leaderboard = calculateLeaderboard(playingTeams, lobby.matches);
   
   // CSV Header - New column order: Rank (Pos), Team Name, Match, Placement points, Kill points, Total points, Wins
   let csv = 'Rank (Pos),Team Name,Match,Placement points,Kill points,Total points,Wins\n';
@@ -48,7 +49,8 @@ export function exportLobbyToCSV(lobby: Lobby): void {
 export async function exportLobbyToPDF(lobby: Lobby): Promise<void> {
   // Dynamic import for client-side only
   const { default: jsPDF } = await import('jspdf');
-  const leaderboard = calculateLeaderboard(lobby.teams, lobby.matches);
+  const playingTeams = lobby.teams.slice(0, lobby.playingTeams || lobby.teams.length);
+  const leaderboard = calculateLeaderboard(playingTeams, lobby.matches);
   const doc = new jsPDF();
   
   // Title
@@ -127,7 +129,11 @@ export async function exportLobbyToPDF(lobby: Lobby): Promise<void> {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     match.results
-      .sort((a, b) => a.placement - b.placement)
+      .sort((a, b) => {
+        const aPlacement = a.placement ?? 999;
+        const bPlacement = b.placement ?? 999;
+        return aPlacement - bPlacement;
+      })
       .forEach(result => {
         const team = lobby.teams.find(t => t.id === result.teamId);
         doc.text(`${result.placement}. ${team?.name || 'Unknown'} - ${result.kills} kills - ${result.points} pts`, 20, yPos);
@@ -147,7 +153,8 @@ export function exportDailySummary(lobbies: Lobby[], date: string): void {
   let csv = `Daily Tournament Summary - ${date}\n\n`;
   
   lobbies.forEach(lobby => {
-    const leaderboard = calculateLeaderboard(lobby.teams, lobby.matches);
+    const lobbyPlayingTeams = lobby.teams.slice(0, lobby.playingTeams || lobby.teams.length);
+    const leaderboard = calculateLeaderboard(lobbyPlayingTeams, lobby.matches);
     const winner = leaderboard[0];
     
     csv += `${lobby.name}\n`;
@@ -172,13 +179,17 @@ export function exportDailySummary(lobbies: Lobby[], date: string): void {
  */
 export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
   try {
-    // Create a temporary container - no fixed height, let content determine it
+    const isBlackBackground = lobby.backgroundTemplate === 'black';
+    const isSquareFormat = isBlackBackground;
+    const templateWidth = isSquareFormat ? 1080 : 1420;
+    
+    // Create a temporary container
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
     container.style.top = '-9999px';
-    container.style.width = '1420px'; // Match template width - tight fit
-    container.style.overflow = 'visible'; // Allow content to expand
+    container.style.width = `${templateWidth}px`;
+    container.style.overflow = 'visible';
     document.body.appendChild(container);
 
     // Create React root and render template
@@ -194,13 +205,24 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
         const templateElement = container.querySelector('#leaderboard-export-template');
         if (templateElement) {
           // Get background image URL from template ID or direct URL
-          // Template ID is the base filename, so we construct the path
-          const backgroundImageUrl = lobby.backgroundTemplate 
-            ? `/backgrounds/${lobby.backgroundTemplate}.jpg` // Try .jpg first
-            : lobby.backgroundImageUrl;
+          // Handle black template specially (no image, just CSS background)
+          const isBlackBackground = lobby.backgroundTemplate === 'black';
           
-          // Wait for background image to load if present
-          if (backgroundImageUrl) {
+          const getBackgroundUrl = () => {
+            if (isBlackBackground) return undefined;
+            if (!lobby.backgroundTemplate) return lobby.backgroundImageUrl;
+            
+            // Use absolute URL for Vercel deployment compatibility
+            if (typeof window !== 'undefined') {
+              return `${window.location.origin}/backgrounds/${lobby.backgroundTemplate}.jpg`;
+            }
+            return `/backgrounds/${lobby.backgroundTemplate}.jpg`;
+          };
+          
+          const backgroundImageUrl = getBackgroundUrl();
+          
+          // Wait for background image to load if present (not for black background)
+          if (backgroundImageUrl && !isBlackBackground) {
             const img = new window.Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
@@ -228,6 +250,61 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
 
     // Wait for layout to fully settle
     await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // For portrait format (black background), use fixed dimensions 1080x1350
+    if (isSquareFormat) {
+      templateElement.style.width = '1080px';
+      templateElement.style.height = '1350px';
+      templateElement.style.margin = '0';
+      templateElement.style.padding = '0';
+      templateElement.style.boxSizing = 'border-box';
+      templateElement.style.overflow = 'hidden';
+      templateElement.style.display = 'flex'; // Keep flexbox for centering
+      templateElement.style.flexDirection = 'column';
+      templateElement.style.justifyContent = 'center';
+      templateElement.style.alignItems = 'center';
+
+      container.style.width = '1080px';
+      container.style.height = '1350px';
+      container.style.margin = '0';
+      container.style.padding = '0';
+      container.style.overflow = 'hidden';
+      container.style.boxSizing = 'border-box';
+
+      // Update background div
+      const backgroundDiv = templateElement.querySelector('div[style*="backgroundColor: #000000"]') as HTMLElement;
+      if (backgroundDiv) {
+        backgroundDiv.style.width = '1080px';
+        backgroundDiv.style.height = '1350px';
+      }
+
+      // Wait for dimension changes
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Convert to PNG with portrait dimensions
+      const dataUrl = await toPng(templateElement, {
+        quality: 1.0,
+        pixelRatio: 2,
+        backgroundColor: '#000000',
+        cacheBust: true,
+        width: 1080,
+        height: 1350,
+      });
+
+      // Create download link
+      const link = document.createElement('a');
+      link.download = `${lobby.tournamentName || lobby.name}_${lobby.date}.png`;
+      link.href = dataUrl;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Cleanup
+      root.unmount();
+      document.body.removeChild(container);
+      return;
+    }
 
     // Helper function to find table element with multiple fallback strategies
     const findTableElement = (): HTMLElement => {

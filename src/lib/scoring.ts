@@ -128,25 +128,27 @@ export function calculateLeaderboard(
 /**
  * Get the current match number (next match to be played)
  */
-export function getCurrentMatchNumber(matches: Match[]): number {
+export function getCurrentMatchNumber(matches: Match[], maxMatches: number = 6): number {
+  if (matches.length === 0) return 1;
+  if (matches.length >= maxMatches) return maxMatches + 1; // All matches completed
   return matches.length + 1;
 }
 
 /**
- * Check if lobby is completed (all 6 matches played)
+ * Check if lobby is completed (all matches played)
  */
-export function isLobbyCompleted(matches: Match[]): boolean {
-  return matches.length >= 6;
+export function isLobbyCompleted(matches: Match[], maxMatches: number = 6): boolean {
+  return matches.length >= maxMatches;
 }
 
 /**
  * Get lobby status based on matches
  */
-export function getLobbyStatus(matches: Match[]): 'not_started' | 'in_progress' | 'completed' {
+export function getLobbyStatus(matches: Match[], maxMatches: number = 6): 'not_started' | 'in_progress' | 'completed' {
   if (matches.length === 0) {
     return 'not_started';
   }
-  if (matches.length >= 6) {
+  if (matches.length >= maxMatches) {
     return 'completed';
   }
   return 'in_progress';

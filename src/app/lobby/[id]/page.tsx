@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Lobby, MatchResult } from '@/lib/types';
-import { getLobby, saveLobby } from '@/lib/storage';
+import { Lobby, MatchResult, Match } from '@/lib/types';
+import { getLobby, saveLobby, updateMatch } from '@/lib/storage';
 import { calculateLeaderboard, getCurrentMatchNumber, isLobbyCompleted, getLobbyStatus } from '@/lib/scoring';
 import { exportLobbyToCSV, exportLobbyToPDF, exportLeaderboardAsImage } from '@/utils/export';
 import MatchEntry from '@/components/MatchEntry';
 import Leaderboard from '@/components/Leaderboard';
 import MatchHistory from '@/components/MatchHistory';
+import EditMatchModal from '@/components/EditMatchModal';
 
 export default function LobbyDetailPage() {
   const params = useParams();
@@ -21,6 +22,7 @@ export default function LobbyDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
   const loadLobby = async () => {
     setIsLoading(true);
@@ -67,7 +69,7 @@ export default function LobbyDetailPage() {
 
     setIsSaving(true);
 
-    const currentMatchNum = getCurrentMatchNumber(lobby.matches);
+    const currentMatchNum = getCurrentMatchNumber(lobby.matches, lobby.matchesCount || 6);
     const newMatch = {
       id: `match_${lobby.id}_${currentMatchNum}`,
       lobbyId: lobby.id,
@@ -79,7 +81,7 @@ export default function LobbyDetailPage() {
     const updatedLobby: Lobby = {
       ...lobby,
       matches: [...lobby.matches, newMatch],
-      status: getLobbyStatus([...lobby.matches, newMatch]),
+      status: getLobbyStatus([...lobby.matches, newMatch], lobby.matchesCount || 6),
     };
 
     try {
@@ -88,6 +90,46 @@ export default function LobbyDetailPage() {
     } catch (error) {
       console.error('Error saving match:', error);
       alert('Failed to save match. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditMatch = (match: Match) => {
+    setEditingMatch(match);
+  };
+
+  const handleUpdateMatch = async (matchId: string, results: MatchResult[]) => {
+    if (!lobby) return;
+
+    setIsSaving(true);
+
+    try {
+      // Update match results in database
+      await updateMatch(lobby.id, matchId, results);
+
+      // Update local state
+      const updatedMatches = lobby.matches.map(m => {
+        if (m.id === matchId) {
+          return {
+            ...m,
+            results,
+          };
+        }
+        return m;
+      });
+
+      const updatedLobby: Lobby = {
+        ...lobby,
+        matches: updatedMatches,
+        status: getLobbyStatus(updatedMatches, lobby.matchesCount || 6),
+      };
+
+      setLobby(updatedLobby);
+      setEditingMatch(null);
+    } catch (error) {
+      console.error('Error updating match:', error);
+      alert('Failed to update match. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -131,9 +173,12 @@ export default function LobbyDetailPage() {
     );
   }
 
-  const leaderboard = calculateLeaderboard(lobby.teams, lobby.matches);
-  const currentMatchNum = getCurrentMatchNumber(lobby.matches);
-  const completed = isLobbyCompleted(lobby.matches);
+  const leaderboard = calculateLeaderboard(
+    lobby.teams.slice(0, lobby.playingTeams || lobby.teams.length),
+    lobby.matches
+  );
+  const currentMatchNum = getCurrentMatchNumber(lobby.matches, lobby.matchesCount || 6);
+  const completed = isLobbyCompleted(lobby.matches, lobby.matchesCount || 6);
 
   return (
     <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
@@ -161,10 +206,17 @@ export default function LobbyDetailPage() {
               <p className="text-sm sm:text-base text-gray-600">Date: {lobby.date}</p>
               <p className="text-xs sm:text-sm text-gray-500 mt-1">
                 Status: <span className="font-semibold capitalize">{lobby.status}</span> | 
-                Matches: {lobby.matches.length}/6
+                Matches: {lobby.matches.length}/{lobby.matchesCount || 6} | 
+                Teams: {lobby.playingTeams || lobby.teams.length}/{lobby.registeredTeams || lobby.teams.length}
               </p>
             </div>
             <div className="flex gap-2 sm:flex-shrink-0">
+              <Link
+                href={`/lobby/${lobbyId}/edit`}
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 active:bg-yellow-800 transition-colors font-medium text-sm sm:text-base"
+              >
+                Edit Lobby
+              </Link>
               <div className="relative export-menu-container">
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
@@ -210,11 +262,13 @@ export default function LobbyDetailPage() {
         {!completed && (
           <div className="mb-4 sm:mb-6">
             <MatchEntry
-              teams={lobby.teams}
+              teams={lobby.teams.slice(0, lobby.playingTeams || lobby.teams.length)}
               currentMatchNumber={currentMatchNum}
               previousMatches={lobby.matches}
               onSave={handleSaveMatch}
               isLoading={isSaving}
+              maxMatches={lobby.matchesCount || 6}
+              playingTeams={lobby.playingTeams || lobby.teams.length}
             />
           </div>
         )}
@@ -222,7 +276,7 @@ export default function LobbyDetailPage() {
         {completed && (
           <div className="mb-4 sm:mb-6 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
             <p className="text-sm sm:text-base text-green-800 font-semibold text-center">
-              🎉 All 6 matches completed! Tournament finished.
+              🎉 All {lobby.matchesCount || 6} matches completed! Tournament finished.
             </p>
           </div>
         )}
@@ -234,8 +288,24 @@ export default function LobbyDetailPage() {
 
         {/* Match History */}
         <div>
-          <MatchHistory matches={lobby.matches} teams={lobby.teams} />
+          <MatchHistory 
+            matches={lobby.matches} 
+            teams={lobby.teams}
+            onEditMatch={handleEditMatch}
+          />
         </div>
+
+        {/* Edit Match Modal */}
+        {editingMatch && (
+          <EditMatchModal
+            match={editingMatch}
+            teams={lobby.teams}
+            playingTeams={lobby.playingTeams || lobby.teams.length}
+            isOpen={!!editingMatch}
+            onClose={() => setEditingMatch(null)}
+            onSave={handleUpdateMatch}
+          />
+        )}
       </div>
     </main>
   );

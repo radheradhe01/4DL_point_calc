@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Lobby, Team } from '@/lib/types';
-import { saveLobby, generateLobbyId } from '@/lib/storage';
+import { getLobby, saveLobby } from '@/lib/storage';
 import { BackgroundTemplate } from '@/lib/backgroundTemplates';
 import DateInput from '@/components/DateInput';
 
-export default function NewLobbyPage() {
+export default function EditLobbyPage() {
+  const params = useParams();
   const router = useRouter();
+  const lobbyId = params.id as string;
+  
   const [lobbyName, setLobbyName] = useState('');
   const [lobbyDate, setLobbyDate] = useState(new Date().toISOString().split('T')[0]);
   const [hostNotes, setHostNotes] = useState('');
@@ -22,9 +25,48 @@ export default function NewLobbyPage() {
   const [playingTeams, setPlayingTeams] = useState<number>(12);
   const [templates, setTemplates] = useState<BackgroundTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
-  const [teams, setTeams] = useState<string[]>(Array(12).fill(''));
+  const [teams, setTeams] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Load lobby data
+  useEffect(() => {
+    const loadLobby = async () => {
+      setIsLoading(true);
+      try {
+        const loadedLobby = await getLobby(lobbyId);
+        if (!loadedLobby) {
+          router.push('/');
+          return;
+        }
+        
+        // Populate form with existing lobby data
+        setLobbyName(loadedLobby.name);
+        setLobbyDate(loadedLobby.date);
+        setHostNotes(loadedLobby.hostNotes || '');
+        setTournamentName(loadedLobby.tournamentName);
+        setPrizeMoney(loadedLobby.prizeMoney);
+        setTournamentStage(loadedLobby.tournamentStage);
+        setSelectedTemplate(loadedLobby.backgroundTemplate || '');
+        setMatchesCount(loadedLobby.matchesCount || 6);
+        setRegisteredTeams(loadedLobby.registeredTeams || loadedLobby.teams.length);
+        setPlayingTeams(loadedLobby.playingTeams || loadedLobby.teams.length);
+        
+        // Populate teams array
+        const sortedTeams = [...loadedLobby.teams].sort((a, b) => a.slotNumber - b.slotNumber);
+        setTeams(sortedTeams.map(t => t.name));
+      } catch (error) {
+        console.error('Error loading lobby:', error);
+        alert('Failed to load lobby. Please try again.');
+        router.push('/');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadLobby();
+  }, [lobbyId, router]);
 
   // Fetch templates on component mount
   useEffect(() => {
@@ -96,10 +138,6 @@ export default function NewLobbyPage() {
       validationErrors.push('Tournament name is required');
     }
 
-    if (!prizeMoney.trim()) {
-      validationErrors.push('Prize money is required');
-    }
-
     if (!tournamentStage.trim()) {
       validationErrors.push('Tournament stage is required');
     }
@@ -141,20 +179,27 @@ export default function NewLobbyPage() {
     setIsSubmitting(true);
 
     try {
-      // Create lobby
-      const lobbyId = await generateLobbyId();
-      
+      // Load existing lobby to preserve matches
+      const existingLobby = await getLobby(lobbyId);
+      if (!existingLobby) {
+        throw new Error('Lobby not found');
+      }
+
       // Only create teams for teams that have names (at least playingTeams must have names)
       const validTeams = teams.filter(name => name.trim() !== '');
       // Ensure we have at least playingTeams teams, but don't create empty teams
       const teamsToCreate = Math.max(playingTeams, validTeams.length);
       
+      // Preserve existing team IDs when possible
+      const existingTeamsMap = new Map(existingLobby.teams.map(t => [t.slotNumber, t]));
+      
       const lobbyTeams: Team[] = [];
       for (let i = 0; i < teamsToCreate; i++) {
         const teamName = teams[i]?.trim() || (i < playingTeams ? `Team ${i + 1}` : '');
         if (teamName) {
+          const existingTeam = existingTeamsMap.get(i + 1);
           lobbyTeams.push({
-            id: `team_${lobbyId}_${i}`,
+            id: existingTeam?.id || `team_${lobbyId}_${i}`, // Preserve existing ID or create new
             lobbyId,
             name: teamName,
             slotNumber: i + 1,
@@ -162,11 +207,10 @@ export default function NewLobbyPage() {
         }
       }
 
-      const newLobby: Lobby = {
-        id: lobbyId,
+      const updatedLobby: Lobby = {
+        ...existingLobby,
         name: lobbyName.trim(),
         date: lobbyDate,
-        status: 'not_started',
         hostNotes: hostNotes.trim() || undefined,
         tournamentName: tournamentName.trim(),
         prizeMoney: prizeMoney.trim(),
@@ -176,18 +220,32 @@ export default function NewLobbyPage() {
         registeredTeams: registeredTeams,
         playingTeams: playingTeams,
         teams: lobbyTeams,
-        matches: [],
-        createdAt: new Date().toISOString(),
+        // Filter matches to only include those up to matchesCount
+        matches: existingLobby.matches
+          .filter(match => match.matchNumber <= matchesCount)
+          .sort((a, b) => a.matchNumber - b.matchNumber),
       };
 
-      await saveLobby(newLobby);
+      await saveLobby(updatedLobby);
       router.push(`/lobby/${lobbyId}`);
     } catch (error) {
-      console.error('Error creating lobby:', error);
-      setErrors(['Failed to create lobby. Please try again.']);
+      console.error('Error updating lobby:', error);
+      setErrors(['Failed to update lobby. Please try again.']);
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center">
+            <p className="text-gray-600">Loading lobby...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
@@ -202,9 +260,9 @@ export default function NewLobbyPage() {
               className="h-10 w-10 sm:h-12 sm:w-12 object-contain"
               priority
             />
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Create New Lobby</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Edit Lobby</h1>
           </div>
-          <p className="text-sm sm:text-base text-gray-600">Set up a new tournament lobby with configurable teams and matches</p>
+          <p className="text-sm sm:text-base text-gray-600">Update lobby settings and team information</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-4 sm:p-6">
@@ -240,6 +298,27 @@ export default function NewLobbyPage() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="host-notes" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Host Notes (Optional)
+                </label>
+                <textarea
+                  id="host-notes"
+                  value={hostNotes}
+                  onChange={(e) => setHostNotes(e.target.value)}
+                  placeholder="Any additional notes or instructions..."
+                  rows={3}
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Tournament Info */}
+          <div className="mb-4 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-900">Tournament Information</h2>
+            
+            <div className="space-y-3 sm:space-y-4">
               <div>
                 <label htmlFor="tournament-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Tournament Name *
@@ -378,67 +457,34 @@ export default function NewLobbyPage() {
                           }`}
                           onClick={() => setSelectedTemplate(template.id)}
                         >
-                          <div className="aspect-video relative overflow-hidden rounded-t-lg bg-gray-100">
-                            <Image
-                              src={template.previewUrl}
-                              alt={template.name}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                            />
-                          </div>
-                          <div className="p-2 sm:p-3 bg-white rounded-b-lg">
-                            <p className="text-xs sm:text-sm font-medium text-gray-900 text-center">
-                              {template.name}
-                            </p>
-                            {template.description && (
-                              <p className="text-xs text-gray-500 text-center mt-1 hidden sm:block">
-                                {template.description}
-                              </p>
-                            )}
-                          </div>
-                          {selectedTemplate === template.id && (
-                            <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
+                          {template.id === 'black' ? (
+                            <div className="aspect-square bg-black rounded-lg flex items-center justify-center">
+                              <span className="text-white text-xs font-semibold">Black</span>
+                            </div>
+                          ) : (
+                            <div className="aspect-square relative">
+                              <Image
+                                src={template.previewUrl}
+                                alt={template.name}
+                                fill
+                                className="object-cover rounded-lg"
+                                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                              />
                             </div>
                           )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white text-xs p-1 rounded-b-lg text-center">
+                            {template.name}
+                          </div>
                         </div>
                       ))}
                     </div>
-                    {!selectedTemplate && (
-                      <p className="mt-2 text-xs text-red-600">Please select a background template</p>
+                    {selectedTemplate && (
+                      <p className="mt-2 text-xs text-gray-600">
+                        Selected: {templates.find(t => t.id === selectedTemplate)?.name}
+                      </p>
                     )}
                   </>
                 )}
-                <p className="mt-2 text-xs text-gray-500">
-                  Choose a background template for the leaderboard export
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="host-notes" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                  Host Notes (Optional)
-                </label>
-                <textarea
-                  id="host-notes"
-                  value={hostNotes}
-                  onChange={(e) => setHostNotes(e.target.value)}
-                  placeholder="Any additional notes about this lobby..."
-                  rows={3}
-                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
-                />
               </div>
             </div>
           </div>
@@ -481,21 +527,21 @@ export default function NewLobbyPage() {
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-end">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 border border-gray-300 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors font-medium text-sm sm:text-base"
-            >
-              Cancel
-            </button>
+          {/* Submit Button */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+              className="flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm sm:text-base"
             >
-              {isSubmitting ? 'Creating...' : 'Create Lobby'}
+              {isSubmitting ? 'Updating...' : 'Update Lobby'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 active:bg-gray-500 transition-colors font-medium text-sm sm:text-base"
+            >
+              Cancel
             </button>
           </div>
         </form>

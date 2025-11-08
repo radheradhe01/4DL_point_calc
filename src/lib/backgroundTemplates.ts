@@ -71,7 +71,18 @@ export async function getBackgroundTemplates(): Promise<BackgroundTemplate[]> {
     }
     
     // Sort by ID for consistent ordering
-    return templates.sort((a, b) => a.id.localeCompare(b.id));
+    const sortedTemplates = templates.sort((a, b) => a.id.localeCompare(b.id));
+    
+    // Add black background template option (code-based, no image)
+    sortedTemplates.unshift({
+      id: 'black',
+      name: 'Solid Black',
+      previewUrl: '/backgrounds/black-preview.jpg', // We'll create a simple black square
+      imageUrl: '', // Empty = use CSS backgroundColor instead
+      description: 'Pure black background (no image)',
+    });
+    
+    return sortedTemplates;
   } catch (error) {
     console.error('Error reading background templates:', error);
     return [];
