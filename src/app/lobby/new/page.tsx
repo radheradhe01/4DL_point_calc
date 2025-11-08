@@ -96,10 +96,6 @@ export default function NewLobbyPage() {
       validationErrors.push('Tournament name is required');
     }
 
-    if (!prizeMoney.trim()) {
-      validationErrors.push('Prize money is required');
-    }
-
     if (!tournamentStage.trim()) {
       validationErrors.push('Tournament stage is required');
     }
@@ -169,7 +165,7 @@ export default function NewLobbyPage() {
         status: 'not_started',
         hostNotes: hostNotes.trim() || undefined,
         tournamentName: tournamentName.trim(),
-        prizeMoney: prizeMoney.trim(),
+        prizeMoney: prizeMoney.trim() || undefined,
         tournamentStage: tournamentStage.trim(),
         backgroundTemplate: selectedTemplate,
         matchesCount: matchesCount,

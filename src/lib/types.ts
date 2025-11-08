@@ -27,7 +27,7 @@ export interface Lobby {
   status: 'not_started' | 'in_progress' | 'completed';
   hostNotes?: string;
   tournamentName: string;
-  prizeMoney: string;
+  prizeMoney?: string;
   tournamentStage: string;
   backgroundTemplate?: string; // Template ID instead of image URL
   backgroundImageUrl?: string; // Keep for backward compatibility, but prefer backgroundTemplate

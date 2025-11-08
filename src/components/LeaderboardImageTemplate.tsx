@@ -138,20 +138,20 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
           {lobby.tournamentName || 'TOURNAMENT'}
         </h1>
 
-        {/* Prize Money + Stage */}
-        <div
-          style={{
-            fontSize: '48px',
-            fontWeight: 'bold',
-            color: '#FFFFFF',
-            textTransform: 'uppercase',
-            marginBottom: '15px',
-            textAlign: 'center',
-            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
-          }}
-        >
-          {lobby.prizeMoney} {lobby.tournamentStage.toUpperCase()}
-        </div>
+            {/* Prize Money + Stage */}
+            <div
+              style={{
+                fontSize: '48px',
+                fontWeight: 'bold',
+                color: '#FFFFFF',
+                textTransform: 'uppercase',
+                marginBottom: '15px',
+                textAlign: 'center',
+                textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+              }}
+            >
+              {lobby.prizeMoney ? `${lobby.prizeMoney} ` : ''}{lobby.tournamentStage.toUpperCase()}
+            </div>
 
         {/* Tagline - Hardcoded */}
         <div

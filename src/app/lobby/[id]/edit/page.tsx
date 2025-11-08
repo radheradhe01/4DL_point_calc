@@ -40,7 +40,7 @@ export default function EditLobbyPage() {
       setLobbyDate(loadedLobby.date);
       setHostNotes(loadedLobby.hostNotes || '');
       setTournamentName(loadedLobby.tournamentName);
-      setPrizeMoney(loadedLobby.prizeMoney);
+      setPrizeMoney(loadedLobby.prizeMoney || '');
       setTournamentStage(loadedLobby.tournamentStage);
       setSelectedTemplate(loadedLobby.backgroundTemplate || '');
       setMatchesCount(loadedLobby.matchesCount || 6);
@@ -204,7 +204,7 @@ export default function EditLobbyPage() {
         date: lobbyDate,
         hostNotes: hostNotes.trim() || undefined,
         tournamentName: tournamentName.trim(),
-        prizeMoney: prizeMoney.trim(),
+        prizeMoney: prizeMoney.trim() || undefined,
         tournamentStage: tournamentStage.trim(),
         backgroundTemplate: selectedTemplate,
         matchesCount: matchesCount,
