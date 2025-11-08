@@ -1,0 +1,74 @@
+{
+  "template1": {
+    "headerBg": "#0a7832",
+    "headerText": "#FFFFFF",
+    "totalBg": "#748b6a",
+    "totalFg": "#000000",
+    "winsBg": "#E63946",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template2": {
+    "headerBg": "#5d3924",
+    "headerText": "#FFFFFF",
+    "totalBg": "#8f6b56",
+    "totalFg": "#FFFFFF",
+    "winsBg": "#146aae",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template4": {
+    "headerBg": "#9b122f",
+    "headerText": "#FFFFFF",
+    "totalBg": "#f6f08d",
+    "totalFg": "#000000",
+    "winsBg": "#572f4e",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template5": {
+    "headerBg": "#0a7832",
+    "headerText": "#FFFFFF",
+    "totalBg": "#3caa64",
+    "totalFg": "#000000",
+    "winsBg": "#E63946",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template7": {
+    "headerBg": "#0a5198",
+    "headerText": "#FFFFFF",
+    "totalBg": "#c1dcd9",
+    "totalFg": "#000000",
+    "winsBg": "#4f5c36",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template8": {
+    "headerBg": "#71241d",
+    "headerText": "#FFFFFF",
+    "totalBg": "#eec78a",
+    "totalFg": "#000000",
+    "winsBg": "#146aae",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "template9": {
+    "headerBg": "#6a1e24",
+    "headerText": "#FFFFFF",
+    "totalBg": "#83848c",
+    "totalFg": "#000000",
+    "winsBg": "#146aae",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  },
+  "black": {
+    "headerBg": "#000000",
+    "headerText": "#FFFFFF",
+    "totalBg": "#FFD700",
+    "totalFg": "#000000",
+    "winsBg": "#E63946",
+    "winsFg": "#FFFFFF",
+    "text": "#FFFFFF"
+  }
+}

@@ -77,7 +77,7 @@ export async function getBackgroundTemplates(): Promise<BackgroundTemplate[]> {
     sortedTemplates.unshift({
       id: 'black',
       name: 'Solid Black',
-      previewUrl: '/backgrounds/black-preview.jpg', // We'll create a simple black square
+      previewUrl: '', // Empty = render as solid black div (no image file needed)
       imageUrl: '', // Empty = use CSS backgroundColor instead
       description: 'Pure black background (no image)',
     });

@@ -379,13 +379,17 @@ export default function NewLobbyPage() {
                           onClick={() => setSelectedTemplate(template.id)}
                         >
                           <div className="aspect-video relative overflow-hidden rounded-t-lg bg-gray-100">
-                            <Image
-                              src={template.previewUrl}
-                              alt={template.name}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                            />
+                            {template.id === 'black' || !template.previewUrl ? (
+                              <div className="absolute inset-0 bg-black" />
+                            ) : (
+                              <Image
+                                src={template.previewUrl}
+                                alt={template.name}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                              />
+                            )}
                           </div>
                           <div className="p-2 sm:p-3 bg-white rounded-b-lg">
                             <p className="text-xs sm:text-sm font-medium text-gray-900 text-center">

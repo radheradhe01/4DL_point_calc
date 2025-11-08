@@ -3,12 +3,14 @@
 import Image from 'next/image';
 import { Lobby, LeaderboardEntry } from '@/lib/types';
 import { calculateLeaderboard } from '@/lib/scoring';
+import { useTheme } from '@/context/ThemeProvider';
 
 interface LeaderboardImageTemplateProps {
   lobby: Lobby;
 }
 
 export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemplateProps) {
+  const { theme } = useTheme();
   const playingTeams = lobby.teams.slice(0, lobby.playingTeams || lobby.teams.length);
   const leaderboard = calculateLeaderboard(playingTeams, lobby.matches);
   
@@ -34,11 +36,10 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
     return rank.toString().padStart(2, '0');
   };
 
-  // Instagram portrait post dimensions: 1080x1350 (4:5 aspect ratio) for black background
-  const isSquareFormat = isBlackBackground;
-  const templateWidth = isSquareFormat ? '1080px' : '1420px';
-  const templateHeight = isSquareFormat ? '1350px' : 'auto';
-  const minHeight = isSquareFormat ? '1350px' : '1080px';
+  // 7:10 aspect ratio (height:width) - e.g., 1400px width = 2000px height
+  // This ensures consistent portrait orientation for all exports
+  const templateWidth = '1400px';
+  const templateHeight = '2000px';
 
   return (
     <div
@@ -46,19 +47,19 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
       style={{
         width: templateWidth,
         height: templateHeight,
-        minHeight: minHeight,
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'space-between', // Distributes header, table, footer evenly
         alignItems: 'center',
         position: 'relative',
-        overflow: 'visible',
+        overflow: 'hidden',
         fontFamily: 'Arial, Helvetica, sans-serif',
         backgroundColor: '#000000', // Fallback background
         boxSizing: 'border-box',
+        padding: '60px 40px', // Safe padding zones
       }}
     >
-      {/* Background Image or Black Background - Only covers content area */}
+      {/* Background Image or Black Background */}
       {(isBlackBackground || backgroundImageUrl) && (
         <div
           style={{
@@ -66,8 +67,7 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
             top: 0,
             left: 0,
             width: '100%',
-            height: isSquareFormat ? '1350px' : '100%',
-            minHeight: minHeight,
+            height: '100%',
             ...(isBlackBackground
               ? { backgroundColor: '#000000' }
               : {
@@ -81,115 +81,33 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
         />
       )}
 
-      {/* Content Container */}
-      <div
+      {/* Header Section - Flexbox will position at top */}
+      <header
         style={{
           position: 'relative',
           zIndex: 1,
-          width: '100%',
-          height: isSquareFormat ? 'auto' : '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: isSquareFormat ? '30px' : '60px',
-          paddingLeft: '0',
-          paddingRight: '0',
-          paddingBottom: isSquareFormat ? '30px' : '0',
-          boxSizing: 'border-box',
+          width: '100%',
+          flexShrink: 0,
         }}
       >
-        {/* Header Section */}
+        {/* Logo - Positioned in header, aligned right */}
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            marginBottom: isSquareFormat ? '20px' : '30px',
-            width: '100%',
-          }}
-        >
-          {/* Tournament Name */}
-          <h1
-            style={{
-              fontSize: isSquareFormat ? '48px' : '64px',
-              fontWeight: 'bold',
-              color: '#FFFFFF',
-              textTransform: 'uppercase',
-              margin: 0,
-              marginBottom: isSquareFormat ? '12px' : '20px',
-              textAlign: 'center',
-              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
-            }}
-          >
-            {lobby.tournamentName || 'TOURNAMENT'}
-          </h1>
-
-          {/* Prize Money + Stage */}
-          <div
-            style={{
-              fontSize: isSquareFormat ? '36px' : '48px',
-              fontWeight: 'bold',
-              color: '#FFFFFF',
-              textTransform: 'uppercase',
-              marginBottom: isSquareFormat ? '10px' : '15px',
-              textAlign: 'center',
-              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
-            }}
-          >
-            {lobby.prizeMoney} {lobby.tournamentStage.toUpperCase()}
-          </div>
-
-          {/* Tagline - Hardcoded */}
-          <div
-            style={{
-              fontSize: isSquareFormat ? '24px' : '32px',
-              fontWeight: 'bold',
-              color: '#FFD700',
-              textTransform: 'uppercase',
-              marginBottom: isSquareFormat ? '12px' : '20px',
-              textAlign: 'center',
-              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
-            }}
-          >
-            4 DYNAMIC LORDS
-          </div>
-
-          {/* Standings Banner */}
-          <div
-            style={{
-              backgroundColor: '#FFD700',
-              color: '#000000',
-              padding: isSquareFormat ? '8px 30px' : '12px 40px',
-              borderRadius: '8px',
-              fontSize: isSquareFormat ? '18px' : '24px',
-              fontWeight: 'bold',
-              textTransform: 'uppercase',
-              marginBottom: isSquareFormat ? '20px' : '40px',
-              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            OVERALL STANDINGS
-          </div>
-        </div>
-
-        {/* Logo - Top Right */}
-        <div
-          style={{
-            position: 'absolute',
-            top: isSquareFormat ? '30px' : '40px',
-            right: isSquareFormat ? '30px' : '40px',
-            zIndex: 2,
-            width: isSquareFormat ? '80px' : '120px',
-            height: isSquareFormat ? '80px' : '120px',
+            alignSelf: 'flex-end',
+            width: '120px',
+            height: '120px',
+            marginBottom: '20px',
             overflow: 'hidden',
           }}
         >
           <Image
             src="/logo.png"
             alt="Logo"
-            width={isSquareFormat ? 80 : 120}
-            height={isSquareFormat ? 80 : 120}
+            width={120}
+            height={120}
             style={{
               objectFit: 'contain',
               display: 'block',
@@ -199,30 +117,94 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
           />
         </div>
 
-        {/* Leaderboard Table */}
-        <div
-          id="leaderboard-table-container"
+        {/* Tournament Name */}
+        <h1
           style={{
-            backgroundColor: '#2D2D2D',
-            borderRadius: '12px',
-            padding: isSquareFormat ? '15px' : '20px',
-            width: isSquareFormat ? 'calc(100% - 40px)' : 'fit-content',
-            maxWidth: isSquareFormat ? 'calc(100% - 40px)' : '100%',
-            margin: isSquareFormat ? '0 auto 20px' : '0 auto 40px',
-            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.5)',
+            fontSize: '64px',
+            fontWeight: 'bold',
+            color: theme.headerText,
+            textTransform: 'uppercase',
+            margin: 0,
+            marginBottom: '20px',
+            textAlign: 'center',
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
           }}
         >
+          {lobby.tournamentName || 'TOURNAMENT'}
+        </h1>
+
+        {/* Prize Money + Stage */}
+        <div
+          style={{
+            fontSize: '48px',
+            fontWeight: 'bold',
+            color: '#FFFFFF',
+            textTransform: 'uppercase',
+            marginBottom: '15px',
+            textAlign: 'center',
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+          }}
+        >
+          {lobby.prizeMoney} {lobby.tournamentStage.toUpperCase()}
+        </div>
+
+        {/* Tagline - Hardcoded */}
+        <div
+          style={{
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#FFD700',
+            textTransform: 'uppercase',
+            marginBottom: '20px',
+            textAlign: 'center',
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+          }}
+        >
+          4 DYNAMIC LORDS
+        </div>
+
+        {/* Standings Banner */}
+        <div
+          style={{
+            backgroundColor: theme.totalBg,
+            color: theme.totalFg,
+            padding: '12px 40px',
+            borderRadius: '8px',
+            fontSize: '24px',
+            fontWeight: 'bold',
+            textTransform: 'uppercase',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+          }}
+        >
+          OVERALL STANDINGS
+        </div>
+      </header>
+
+      {/* Leaderboard Table - Flexbox will position in middle */}
+      <div
+        id="leaderboard-table-container"
+        style={{
+          backgroundColor: '#2D2D2D',
+          borderRadius: '12px',
+          padding: '20px',
+          width: 'fit-content',
+          maxWidth: 'calc(100% - 80px)', // Responsive to padding
+          margin: '0 auto',
+          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.5)',
+          position: 'relative',
+          zIndex: 1,
+          flexShrink: 0,
+        }}
+      >
           {/* Table Header */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: isSquareFormat 
-                ? '70px 1fr 60px 80px 80px 90px 60px'
-                : '80px 300px 80px 100px 100px 100px 80px',
-              gap: isSquareFormat ? '8px' : '10px',
-              marginBottom: isSquareFormat ? '10px' : '15px',
-              padding: isSquareFormat ? '8px 6px' : '12px 10px',
-              backgroundColor: '#FF6B35',
+              gridTemplateColumns: '80px 300px 80px 100px 100px 100px 80px',
+              gap: '10px',
+              marginBottom: '15px',
+              padding: '12px 10px',
+              backgroundColor: theme.headerBg,
               borderRadius: '6px',
             }}
           >
@@ -230,8 +212,8 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
               <div
                 key={header}
                 style={{
-                  color: '#FFFFFF',
-                  fontSize: isSquareFormat ? '14px' : '18px',
+                  color: theme.headerText,
+                  fontSize: '18px',
                   fontWeight: 'bold',
                   textTransform: 'uppercase',
                   textAlign: header === 'TEAM NAME' ? 'left' : 'center',
@@ -243,27 +225,25 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
           </div>
 
           {/* Table Rows */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: isSquareFormat ? '6px' : '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {leaderboard.map((entry) => (
               <div
                 key={entry.teamId}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: isSquareFormat 
-                    ? '70px 1fr 60px 80px 80px 90px 60px'
-                    : '80px 300px 80px 100px 100px 100px 80px',
-                  gap: isSquareFormat ? '8px' : '10px',
+                  gridTemplateColumns: '80px 300px 80px 100px 100px 100px 80px',
+                  gap: '10px',
                   alignItems: 'center',
                 }}
               >
                 {/* Position */}
                 <div
                   style={{
-                    backgroundColor: '#FF6B35',
-                    color: '#FFFFFF',
-                    padding: isSquareFormat ? '6px' : '10px',
+                    backgroundColor: theme.headerBg,
+                    color: theme.headerText,
+                    padding: '10px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '16px' : '20px',
+                    fontSize: '20px',
                     fontWeight: 'bold',
                     textAlign: 'center',
                   }}
@@ -274,11 +254,11 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 {/* Team Name */}
                 <div
                   style={{
-                    backgroundColor: '#8B0000',
-                    color: '#FFFFFF',
-                    padding: isSquareFormat ? '6px 10px' : '10px 15px',
+                    backgroundColor: theme.winsBg,
+                    color: theme.winsFg,
+                    padding: '10px 15px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '14px' : '18px',
+                    fontSize: '18px',
                     fontWeight: '600',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -292,11 +272,11 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 {/* Match */}
                 <div
                   style={{
-                    backgroundColor: '#8B0000',
-                    color: '#FFFFFF',
-                    padding: isSquareFormat ? '6px' : '10px',
+                    backgroundColor: theme.winsBg,
+                    color: theme.winsFg,
+                    padding: '10px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '14px' : '18px',
+                    fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
                   }}
@@ -307,11 +287,11 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 {/* Place (Placement Points) */}
                 <div
                   style={{
-                    backgroundColor: '#8B0000',
-                    color: '#FFFFFF',
-                    padding: isSquareFormat ? '6px' : '10px',
+                    backgroundColor: theme.winsBg,
+                    color: theme.winsFg,
+                    padding: '10px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '14px' : '18px',
+                    fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
                   }}
@@ -322,11 +302,11 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 {/* Finish (Kill Points) */}
                 <div
                   style={{
-                    backgroundColor: '#8B0000',
-                    color: '#FFFFFF',
-                    padding: isSquareFormat ? '6px' : '10px',
+                    backgroundColor: theme.winsBg,
+                    color: theme.winsFg,
+                    padding: '10px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '14px' : '18px',
+                    fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
                   }}
@@ -337,11 +317,11 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 {/* Total */}
                 <div
                   style={{
-                    backgroundColor: '#FFD700',
-                    color: '#000000',
-                    padding: isSquareFormat ? '6px' : '10px',
+                    backgroundColor: theme.totalBg,
+                    color: theme.totalFg,
+                    padding: '10px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '16px' : '20px',
+                    fontSize: '20px',
                     fontWeight: 'bold',
                     textAlign: 'center',
                   }}
@@ -352,11 +332,11 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
                 {/* Wins */}
                 <div
                   style={{
-                    backgroundColor: '#8B0000',
-                    color: '#FFFFFF',
-                    padding: isSquareFormat ? '6px' : '10px',
+                    backgroundColor: theme.winsBg,
+                    color: theme.winsFg,
+                    padding: '10px',
                     borderRadius: '6px',
-                    fontSize: isSquareFormat ? '14px' : '18px',
+                    fontSize: '18px',
                     fontWeight: '600',
                     textAlign: 'center',
                   }}
@@ -368,20 +348,21 @@ export default function LeaderboardImageTemplate({ lobby }: LeaderboardImageTemp
           </div>
         </div>
 
-        {/* Attribution */}
-        <div
-          style={{
-            marginTop: isSquareFormat ? '20px' : '30px',
-            textAlign: 'center',
-            color: '#FFFFFF',
-            fontSize: isSquareFormat ? '12px' : '16px',
-            fontWeight: '500',
-            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
-          }}
-        >
-          Powered By 4DL ESPORTS
-        </div>
-      </div>
+      {/* Footer Section - Flexbox will position at bottom */}
+      <footer
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          textAlign: 'center',
+          color: '#FFFFFF',
+          fontSize: '16px',
+          fontWeight: '500',
+          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+          flexShrink: 0,
+        }}
+      >
+        Powered By 4DL ESPORTS
+      </footer>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import MatchEntry from '@/components/MatchEntry';
 import Leaderboard from '@/components/Leaderboard';
 import MatchHistory from '@/components/MatchHistory';
 import EditMatchModal from '@/components/EditMatchModal';
+import { ThemeProvider } from '@/context/ThemeProvider';
 
 export default function LobbyDetailPage() {
   const params = useParams();
@@ -173,7 +174,8 @@ export default function LobbyDetailPage() {
   const completed = isLobbyCompleted(lobby.matches, lobby.matchesCount || 6);
 
   return (
-    <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
+    <ThemeProvider templateId={lobby.backgroundTemplate}>
+      <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-4 sm:mb-6">
@@ -300,6 +302,7 @@ export default function LobbyDetailPage() {
         )}
       </div>
     </main>
+    </ThemeProvider>
   );
 }
 

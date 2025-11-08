@@ -4,6 +4,7 @@ import { toPng } from 'html-to-image';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import LeaderboardImageTemplate from '@/components/LeaderboardImageTemplate';
+import { ThemeProvider } from '@/context/ThemeProvider';
 
 /**
  * Export lobby data to CSV format
@@ -179,9 +180,9 @@ export function exportDailySummary(lobbies: Lobby[], date: string): void {
  */
 export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
   try {
-    const isBlackBackground = lobby.backgroundTemplate === 'black';
-    const isSquareFormat = isBlackBackground;
-    const templateWidth = isSquareFormat ? 1080 : 1420;
+    // 7:10 aspect ratio (height:width) - e.g., 1400px width = 2000px height
+    const templateWidth = 1400;
+    const templateHeight = 2000;
     
     // Create a temporary container
     const container = document.createElement('div');
@@ -189,7 +190,8 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     container.style.left = '-9999px';
     container.style.top = '-9999px';
     container.style.width = `${templateWidth}px`;
-    container.style.overflow = 'visible';
+    container.style.height = `${templateHeight}px`;
+    container.style.overflow = 'hidden';
     document.body.appendChild(container);
 
     // Create React root and render template
@@ -197,7 +199,11 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     
     await new Promise<void>((resolve) => {
       root.render(
-        React.createElement(LeaderboardImageTemplate, { lobby })
+        React.createElement(
+          ThemeProvider,
+          { templateId: lobby.backgroundTemplate },
+          React.createElement(LeaderboardImageTemplate, { lobby })
+        )
       );
       
       // Wait for images and content to render
@@ -223,7 +229,7 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
           
           // Wait for background image to load if present (not for black background)
           if (backgroundImageUrl && !isBlackBackground) {
-            const img = new window.Image();
+            const img: HTMLImageElement = new window.Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
               setTimeout(resolve, 800); // Extra time for full rendering
@@ -251,173 +257,48 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     // Wait for layout to fully settle
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // For portrait format (black background), use fixed dimensions 1080x1350
-    if (isSquareFormat) {
-      templateElement.style.width = '1080px';
-      templateElement.style.height = '1350px';
-      templateElement.style.margin = '0';
-      templateElement.style.padding = '0';
-      templateElement.style.boxSizing = 'border-box';
-      templateElement.style.overflow = 'hidden';
-      templateElement.style.display = 'flex'; // Keep flexbox for centering
-      templateElement.style.flexDirection = 'column';
-      templateElement.style.justifyContent = 'center';
-      templateElement.style.alignItems = 'center';
-
-      container.style.width = '1080px';
-      container.style.height = '1350px';
-      container.style.margin = '0';
-      container.style.padding = '0';
-      container.style.overflow = 'hidden';
-      container.style.boxSizing = 'border-box';
-
-      // Update background div
-      const backgroundDiv = templateElement.querySelector('div[style*="backgroundColor: #000000"]') as HTMLElement;
-      if (backgroundDiv) {
-        backgroundDiv.style.width = '1080px';
-        backgroundDiv.style.height = '1350px';
-      }
-
-      // Wait for dimension changes
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Convert to PNG with portrait dimensions
-      const dataUrl = await toPng(templateElement, {
-        quality: 1.0,
-        pixelRatio: 2,
-        backgroundColor: '#000000',
-        cacheBust: true,
-        width: 1080,
-        height: 1350,
-      });
-
-      // Create download link
-      const link = document.createElement('a');
-      link.download = `${lobby.tournamentName || lobby.name}_${lobby.date}.png`;
-      link.href = dataUrl;
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Cleanup
-      root.unmount();
-      document.body.removeChild(container);
-      return;
-    }
-
-    // Helper function to find table element with multiple fallback strategies
-    const findTableElement = (): HTMLElement => {
-      // Try ID selector first (most reliable)
-      let table = templateElement.querySelector('#leaderboard-table-container') as HTMLElement;
-      if (table) return table;
-      
-      // Try style attribute selector
-      table = templateElement.querySelector('div[style*="backgroundColor: #2D2D2D"]') as HTMLElement;
-      if (table) return table;
-      
-      // Try finding by width attribute
-      const allDivs = templateElement.querySelectorAll('div');
-      for (const div of Array.from(allDivs)) {
-        const style = div.getAttribute('style') || '';
-        if (style.includes('width: 1400px') || style.includes('width:1400px')) {
-          return div as HTMLElement;
-        }
-      }
-      
-      throw new Error('Table element not found. Template may not have rendered correctly.');
-    };
-
-    // Get the table element
-    const tableElement = findTableElement();
-    
-    // Get bounding boxes of all key elements to find the actual content width
-    const tableRect = tableElement.getBoundingClientRect();
-    const templateRect = templateElement.getBoundingClientRect();
-    
-    // Find the rightmost edge of all content
-    let rightmostEdge = tableRect.right - templateRect.left;
-    
-    // Check logo position
-    const logoElement = templateElement.querySelector('div[style*="position: absolute"]') as HTMLElement;
-    if (logoElement) {
-      const logoRect = logoElement.getBoundingClientRect();
-      const logoRightEdge = logoRect.right - templateRect.left;
-      rightmostEdge = Math.max(rightmostEdge, logoRightEdge);
-    }
-    
-    // Check header/button elements
-    const headerElements = templateElement.querySelectorAll('h1, div[style*="OVERALL STANDINGS"]');
-    for (const elem of Array.from(headerElements)) {
-      const elemRect = (elem as HTMLElement).getBoundingClientRect();
-      const elemRightEdge = elemRect.right - templateRect.left;
-      rightmostEdge = Math.max(rightmostEdge, elemRightEdge);
-    }
-    
-    // Check footer/attribution
-    const footerElement = templateElement.querySelector('div[style*="By Pointcalc"]') as HTMLElement;
-    if (footerElement) {
-      const footerRect = footerElement.getBoundingClientRect();
-      const footerRightEdge = footerRect.right - templateRect.left;
-      rightmostEdge = Math.max(rightmostEdge, footerRightEdge);
-    }
-    
-    // Calculate exact content width: rightmost edge + minimal padding (5px for safety)
-    const contentWidth = Math.ceil(rightmostEdge + 5);
-    
-    // Get actual content height
-    const contentHeight = Math.max(
-      templateElement.scrollHeight,
-      templateElement.offsetHeight,
-      1080 // Minimum height
-    );
-
-    // Set exact dimensions on template element - remove all extra space
+    // Ensure template element has exact 7:10 dimensions
+    // Preserve padding (60px 40px) set in component for proper spacing
+    templateElement.style.width = `${templateWidth}px`;
+    templateElement.style.height = `${templateHeight}px`;
     templateElement.style.margin = '0';
-    templateElement.style.padding = '0';
-    templateElement.style.height = `${contentHeight}px`;
-    templateElement.style.width = `${contentWidth}px`;
+    // Don't override padding - let component's padding (60px 40px) remain
     templateElement.style.boxSizing = 'border-box';
     templateElement.style.overflow = 'hidden';
-    templateElement.style.display = 'block';
+    templateElement.style.display = 'flex'; // Keep flexbox layout
+    templateElement.style.flexDirection = 'column';
+    templateElement.style.justifyContent = 'space-between';
+    templateElement.style.alignItems = 'center';
 
     // Update container to match exactly
-    container.style.width = `${contentWidth}px`;
-    container.style.height = 'auto';
+    container.style.width = `${templateWidth}px`;
+    container.style.height = `${templateHeight}px`;
     container.style.margin = '0';
     container.style.padding = '0';
     container.style.overflow = 'hidden';
     container.style.boxSizing = 'border-box';
 
-    // Update background div to match exact content dimensions
-    const backgroundDiv = templateElement.querySelector('div[style*="backgroundImage"]') as HTMLElement;
+    // Update background div to match exact dimensions
+    const backgroundDiv = templateElement.querySelector('div[style*="backgroundImage"], div[style*="backgroundColor: #000000"]') as HTMLElement;
     if (backgroundDiv) {
-      backgroundDiv.style.height = `${contentHeight}px`;
-      backgroundDiv.style.width = `${contentWidth}px`;
+      backgroundDiv.style.width = `${templateWidth}px`;
+      backgroundDiv.style.height = `${templateHeight}px`;
       backgroundDiv.style.margin = '0';
       backgroundDiv.style.padding = '0';
       backgroundDiv.style.boxSizing = 'border-box';
     }
 
-    // Remove padding from content container to eliminate extra space
-    const contentContainer = templateElement.querySelector('div[style*="flexDirection: column"]') as HTMLElement;
-    if (contentContainer) {
-      contentContainer.style.paddingLeft = '0';
-      contentContainer.style.paddingRight = '0';
-      contentContainer.style.width = '100%';
-      contentContainer.style.boxSizing = 'border-box';
-    }
-
     // Wait for all dimension changes to apply
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Convert to PNG using html-to-image - use exact rendered dimensions
+    // Convert to PNG with fixed 7:10 dimensions
     const dataUrl = await toPng(templateElement, {
       quality: 1.0,
       pixelRatio: 2, // Higher resolution
       backgroundColor: '#000000', // Fallback background
       cacheBust: true,
-      // Don't specify width/height - let it use the element's actual rendered size
+      width: templateWidth,
+      height: templateHeight,
     });
 
     // Create download link
