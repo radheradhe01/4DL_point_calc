@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Lobby, Team } from '@/lib/types';
-import { getLobby, saveLobby } from '@/lib/storage';
+import { saveLobby } from '@/lib/storage';
+import { useLobby } from '@/lib/hooks';
 import { BackgroundTemplate } from '@/lib/backgroundTemplates';
 import DateInput from '@/components/DateInput';
 
@@ -12,6 +13,9 @@ export default function EditLobbyPage() {
   const params = useParams();
   const router = useRouter();
   const lobbyId = params.id as string;
+  
+  // Use SWR hook for optimized data fetching
+  const { data: loadedLobby, isLoading: isLoadingLobby, mutate } = useLobby(lobbyId);
   
   const [lobbyName, setLobbyName] = useState('');
   const [lobbyDate, setLobbyDate] = useState(new Date().toISOString().split('T')[0]);
@@ -27,46 +31,34 @@ export default function EditLobbyPage() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [teams, setTeams] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Load lobby data
+  // Populate form when lobby loads
   useEffect(() => {
-    const loadLobby = async () => {
-      setIsLoading(true);
-      try {
-        const loadedLobby = await getLobby(lobbyId);
-        if (!loadedLobby) {
-          router.push('/');
-          return;
+    if (loadedLobby) {
+      setLobbyName(loadedLobby.name);
+      setLobbyDate(loadedLobby.date);
+      setHostNotes(loadedLobby.hostNotes || '');
+      setTournamentName(loadedLobby.tournamentName);
+      setPrizeMoney(loadedLobby.prizeMoney);
+      setTournamentStage(loadedLobby.tournamentStage);
+      setSelectedTemplate(loadedLobby.backgroundTemplate || '');
+      setMatchesCount(loadedLobby.matchesCount || 6);
+      setRegisteredTeams(loadedLobby.registeredTeams || 12);
+      setPlayingTeams(loadedLobby.playingTeams || loadedLobby.registeredTeams || 12);
+      
+      // Populate teams array
+      const teamNames = new Array(loadedLobby.registeredTeams || 12).fill('');
+      loadedLobby.teams.forEach(team => {
+        if (team.slotNumber <= teamNames.length) {
+          teamNames[team.slotNumber - 1] = team.name;
         }
-        
-        // Populate form with existing lobby data
-        setLobbyName(loadedLobby.name);
-        setLobbyDate(loadedLobby.date);
-        setHostNotes(loadedLobby.hostNotes || '');
-        setTournamentName(loadedLobby.tournamentName);
-        setPrizeMoney(loadedLobby.prizeMoney);
-        setTournamentStage(loadedLobby.tournamentStage);
-        setSelectedTemplate(loadedLobby.backgroundTemplate || '');
-        setMatchesCount(loadedLobby.matchesCount || 6);
-        setRegisteredTeams(loadedLobby.registeredTeams || loadedLobby.teams.length);
-        setPlayingTeams(loadedLobby.playingTeams || loadedLobby.teams.length);
-        
-        // Populate teams array
-        const sortedTeams = [...loadedLobby.teams].sort((a, b) => a.slotNumber - b.slotNumber);
-        setTeams(sortedTeams.map(t => t.name));
-      } catch (error) {
-        console.error('Error loading lobby:', error);
-        alert('Failed to load lobby. Please try again.');
-        router.push('/');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadLobby();
-  }, [lobbyId, router]);
+      });
+      setTeams(teamNames);
+    } else if (!isLoadingLobby) {
+      router.push('/');
+    }
+  }, [loadedLobby, isLoadingLobby, router]);
 
   // Fetch templates on component mount
   useEffect(() => {
@@ -179,9 +171,8 @@ export default function EditLobbyPage() {
     setIsSubmitting(true);
 
     try {
-      // Load existing lobby to preserve matches
-      const existingLobby = await getLobby(lobbyId);
-      if (!existingLobby) {
+      // Use loaded lobby from SWR cache
+      if (!loadedLobby) {
         throw new Error('Lobby not found');
       }
 
@@ -191,7 +182,7 @@ export default function EditLobbyPage() {
       const teamsToCreate = Math.max(playingTeams, validTeams.length);
       
       // Preserve existing team IDs when possible
-      const existingTeamsMap = new Map(existingLobby.teams.map(t => [t.slotNumber, t]));
+      const existingTeamsMap = new Map(loadedLobby.teams.map(t => [t.slotNumber, t]));
       
       const lobbyTeams: Team[] = [];
       for (let i = 0; i < teamsToCreate; i++) {
@@ -208,7 +199,7 @@ export default function EditLobbyPage() {
       }
 
       const updatedLobby: Lobby = {
-        ...existingLobby,
+        ...loadedLobby,
         name: lobbyName.trim(),
         date: lobbyDate,
         hostNotes: hostNotes.trim() || undefined,
@@ -221,12 +212,14 @@ export default function EditLobbyPage() {
         playingTeams: playingTeams,
         teams: lobbyTeams,
         // Filter matches to only include those up to matchesCount
-        matches: existingLobby.matches
+        matches: loadedLobby.matches
           .filter(match => match.matchNumber <= matchesCount)
           .sort((a, b) => a.matchNumber - b.matchNumber),
       };
 
       await saveLobby(updatedLobby);
+      // Refresh SWR cache
+      mutate(updatedLobby, false);
       router.push(`/lobby/${lobbyId}`);
     } catch (error) {
       console.error('Error updating lobby:', error);
@@ -235,16 +228,20 @@ export default function EditLobbyPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoadingLobby) {
     return (
-      <main className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
-        <div className="max-w-4xl mx-auto">
+      <main className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <p className="text-gray-600">Loading lobby...</p>
           </div>
         </div>
       </main>
     );
+  }
+
+  if (!loadedLobby) {
+    return null;
   }
 
   return (

@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Lobby, MatchResult, Match } from '@/lib/types';
-import { getLobby, saveLobby, updateMatch } from '@/lib/storage';
+import { saveLobby, updateMatch } from '@/lib/storage';
+import { useLobby } from '@/lib/hooks';
 import { calculateLeaderboard, getCurrentMatchNumber, isLobbyCompleted, getLobbyStatus } from '@/lib/scoring';
 import { exportLobbyToCSV, exportLobbyToPDF, exportLeaderboardAsImage } from '@/utils/export';
 import MatchEntry from '@/components/MatchEntry';
@@ -18,34 +19,19 @@ export default function LobbyDetailPage() {
   const router = useRouter();
   const lobbyId = params.id as string;
   
-  const [lobby, setLobby] = useState<Lobby | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use SWR hook for optimized data fetching with caching
+  const { data: lobby, error, isLoading, mutate } = useLobby(lobbyId);
+  
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
-  const loadLobby = async () => {
-    setIsLoading(true);
-    try {
-      const loadedLobby = await getLobby(lobbyId);
-      if (!loadedLobby) {
-        router.push('/');
-        return;
-      }
-      setLobby(loadedLobby);
-    } catch (error) {
-      console.error('Error loading lobby:', error);
-      alert('Failed to load lobby. Please try again.');
-      router.push('/');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Redirect if lobby not found
   useEffect(() => {
-    loadLobby();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lobbyId]);
+    if (error || (!isLoading && !lobby)) {
+      router.push('/');
+    }
+  }, [error, isLoading, lobby, router]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -86,7 +72,8 @@ export default function LobbyDetailPage() {
 
     try {
       await saveLobby(updatedLobby);
-      setLobby(updatedLobby);
+      // Refresh SWR cache
+      mutate(updatedLobby, false);
     } catch (error) {
       console.error('Error saving match:', error);
       alert('Failed to save match. Please try again.');
@@ -125,7 +112,8 @@ export default function LobbyDetailPage() {
         status: getLobbyStatus(updatedMatches, lobby.matchesCount || 6),
       };
 
-      setLobby(updatedLobby);
+      // Refresh SWR cache
+      mutate(updatedLobby, false);
       setEditingMatch(null);
     } catch (error) {
       console.error('Error updating match:', error);
@@ -161,7 +149,7 @@ export default function LobbyDetailPage() {
     }
   };
 
-  if (!lobby) {
+  if (isLoading) {
     return (
       <main className="min-h-screen bg-gray-50 py-8 px-4">
         <div className="max-w-7xl mx-auto">
@@ -171,6 +159,10 @@ export default function LobbyDetailPage() {
         </div>
       </main>
     );
+  }
+
+  if (!lobby) {
+    return null;
   }
 
   const leaderboard = calculateLeaderboard(

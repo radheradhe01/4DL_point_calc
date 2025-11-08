@@ -1,56 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Lobby } from '@/lib/types';
-import { getAllLobbies, deleteLobby, getLobbiesByDate } from '@/lib/storage';
+import { deleteLobby, getLobbiesByDate } from '@/lib/storage';
+import { useAllLobbies, useLobbiesByDate } from '@/lib/hooks';
 import LobbyCard from '@/components/LobbyCard';
 import { exportDailySummary } from '@/utils/export';
 import DateInput from '@/components/DateInput';
 
 export default function Home() {
-  const [lobbies, setLobbies] = useState<Lobby[]>([]);
-  const [filteredLobbies, setFilteredLobbies] = useState<Lobby[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadLobbies();
-  }, []);
+  // Use SWR hooks for optimized data fetching with caching
+  const { data: allLobbies = [], mutate: mutateAllLobbies } = useAllLobbies();
+  const { data: dateFilteredLobbies = [], mutate: mutateDateLobbies } = useLobbiesByDate(selectedDate || null);
 
-  useEffect(() => {
-    const filterLobbies = async () => {
-      if (selectedDate) {
-        const filtered = await getLobbiesByDate(selectedDate);
-        setFilteredLobbies(filtered);
-      } else {
-        setFilteredLobbies(lobbies);
-      }
-    };
-    filterLobbies();
-  }, [selectedDate, lobbies]);
-
-  const loadLobbies = async () => {
-    setIsLoading(true);
-    try {
-      const allLobbies = await getAllLobbies();
-      setLobbies(allLobbies);
-      setFilteredLobbies(allLobbies);
-    } catch (error) {
-      console.error('Error loading lobbies:', error);
-      alert('Failed to load lobbies. Please refresh the page.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const lobbies = selectedDate ? dateFilteredLobbies : allLobbies;
 
   const handleDelete = async (id: string) => {
     if (showDeleteConfirm === id) {
       try {
         await deleteLobby(id);
-        await loadLobbies();
+        // Refresh both caches
+        mutateAllLobbies();
+        if (selectedDate) {
+          mutateDateLobbies();
+        }
         setShowDeleteConfirm(null);
       } catch (error) {
         console.error('Error deleting lobby:', error);
@@ -135,7 +113,7 @@ export default function Home() {
               )}
             </div>
 
-            {selectedDate && filteredLobbies.length > 0 && (
+            {selectedDate && lobbies.length > 0 && (
               <button
                 onClick={handleExportDaily}
                 className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-green-600 text-white rounded-md hover:bg-green-700 active:bg-green-800 transition-colors font-medium text-center sm:text-left"
@@ -147,11 +125,7 @@ export default function Home() {
         </div>
 
         {/* Lobbies Grid */}
-        {isLoading ? (
-          <div className="bg-white rounded-lg shadow-md p-6 sm:p-12 text-center">
-            <p className="text-lg sm:text-xl text-gray-600">Loading lobbies...</p>
-          </div>
-        ) : filteredLobbies.length === 0 ? (
+        {lobbies.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-6 sm:p-12 text-center">
             <p className="text-lg sm:text-xl text-gray-600 mb-4">
               {selectedDate ? 'No lobbies found for selected date' : 'No lobbies created yet'}
@@ -165,7 +139,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredLobbies.map((lobby) => (
+            {lobbies.map((lobby) => (
               <LobbyCard
                 key={lobby.id}
                 lobby={lobby}

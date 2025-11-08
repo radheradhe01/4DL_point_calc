@@ -1,5 +1,5 @@
 import { Lobby, Team, Match, MatchResult } from './types';
-import { supabase } from './supabase';
+import { supabaseBrowser } from './supabaseBrowser';
 import { calculateMatchPoints } from './scoring';
 
 /**
@@ -16,10 +16,10 @@ function dbRowToLobby(row: any, teams: Team[], matches: Match[]): Lobby {
     prizeMoney: row.prize_money || '',
     tournamentStage: row.tournament_stage || '',
     backgroundTemplate: row.background_template || undefined,
-    backgroundImageUrl: row.background_image_url || undefined, // Keep for backward compatibility
-    matchesCount: row.matches_count || 6, // Default to 6 for backward compatibility
-    registeredTeams: row.registered_teams || 12, // Default to 12 for backward compatibility
-    playingTeams: row.playing_teams || row.registered_teams || 12, // Default to registeredTeams or 12
+    backgroundImageUrl: row.background_image_url || undefined,
+    matchesCount: row.matches_count || 6,
+    registeredTeams: row.registered_teams || 12,
+    playingTeams: row.playing_teams || row.registered_teams || 12,
     teams,
     matches,
     createdAt: row.created_at,
@@ -27,153 +27,50 @@ function dbRowToLobby(row: any, teams: Team[], matches: Match[]): Lobby {
 }
 
 /**
- * Get all lobbies from Supabase
+ * Convert RPC bundle response to Lobby object
  */
-export async function getAllLobbies(): Promise<Lobby[]> {
-  try {
-    // Fetch all lobbies
-    const { data: lobbyRows, error: lobbyError } = await supabase
-      .from('lobbies')
-      .select('*')
-      .order('created_at', { ascending: false });
+function bundleToLobby(bundle: any): Lobby | null {
+  if (!bundle || !bundle.lobby) return null;
 
-    if (lobbyError) throw lobbyError;
-    if (!lobbyRows) return [];
+  const lobbyRow = bundle.lobby;
+  const teams: Team[] = (bundle.teams || []).map((row: any) => ({
+    id: row.id,
+    lobbyId: row.lobby_id,
+    name: row.name,
+    slotNumber: row.slot_number,
+  }));
 
-    // Fetch all teams and matches for each lobby
-    const lobbies: Lobby[] = [];
-    
-    for (const lobbyRow of lobbyRows) {
-      // Fetch teams for this lobby
-      const { data: teamRows, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('lobby_id', lobbyRow.id)
-        .order('slot_number', { ascending: true });
+  const matches: Match[] = (bundle.matches || []).map((matchRow: any) => ({
+    id: matchRow.id,
+    lobbyId: matchRow.lobby_id,
+    matchNumber: matchRow.match_number,
+    results: (matchRow.results || []).map((resultRow: any) => ({
+      teamId: resultRow.team_id,
+      placement: resultRow.placement,
+      kills: resultRow.kills,
+      points: resultRow.points,
+    })),
+    createdAt: matchRow.created_at,
+  }));
 
-      if (teamError) throw teamError;
-
-      const teams: Team[] = (teamRows || []).map(row => ({
-        id: row.id,
-        lobbyId: row.lobby_id,
-        name: row.name,
-        slotNumber: row.slot_number,
-      }));
-
-      // Fetch matches for this lobby
-      const { data: matchRows, error: matchError } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('lobby_id', lobbyRow.id)
-        .order('match_number', { ascending: true });
-
-      if (matchError) throw matchError;
-
-      const matches: Match[] = [];
-      
-      for (const matchRow of matchRows || []) {
-        // Fetch match results for this match
-        const { data: resultRows, error: resultError } = await supabase
-          .from('match_results')
-          .select('*')
-          .eq('match_id', matchRow.id);
-
-        if (resultError) throw resultError;
-
-        const results: MatchResult[] = (resultRows || []).map(resultRow => ({
-          teamId: resultRow.team_id,
-          placement: resultRow.placement,
-          kills: resultRow.kills,
-          points: resultRow.points,
-        }));
-
-        matches.push({
-          id: matchRow.id,
-          lobbyId: matchRow.lobby_id,
-          matchNumber: matchRow.match_number,
-          results,
-          createdAt: matchRow.created_at,
-        });
-      }
-
-      lobbies.push(dbRowToLobby(lobbyRow, teams, matches));
-    }
-
-    return lobbies;
-  } catch (error) {
-    console.error('Error fetching lobbies from Supabase:', error);
-    return [];
-  }
+  return dbRowToLobby(lobbyRow, teams, matches);
 }
 
 /**
- * Get a single lobby by ID
+ * Get a single lobby by ID using optimized RPC function
+ * ONE HTTP request instead of 4+
  */
 export async function getLobby(id: string): Promise<Lobby | null> {
   try {
-    // Fetch lobby
-    const { data: lobbyRow, error: lobbyError } = await supabase
-      .from('lobbies')
-      .select('*')
-      .eq('id', id)
+    const supabase = supabaseBrowser();
+    const { data, error } = await supabase
+      .rpc('get_lobby_bundle', { l_id: id })
       .single();
 
-    if (lobbyError) throw lobbyError;
-    if (!lobbyRow) return null;
+    if (error) throw error;
+    if (!data) return null;
 
-    // Fetch teams
-    const { data: teamRows, error: teamError } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('lobby_id', id)
-      .order('slot_number', { ascending: true });
-
-    if (teamError) throw teamError;
-
-    const teams: Team[] = (teamRows || []).map(row => ({
-      id: row.id,
-      lobbyId: row.lobby_id,
-      name: row.name,
-      slotNumber: row.slot_number,
-    }));
-
-    // Fetch matches
-    const { data: matchRows, error: matchError } = await supabase
-      .from('matches')
-      .select('*')
-      .eq('lobby_id', id)
-      .order('match_number', { ascending: true });
-
-    if (matchError) throw matchError;
-
-    const matches: Match[] = [];
-    
-    for (const matchRow of matchRows || []) {
-      // Fetch match results
-      const { data: resultRows, error: resultError } = await supabase
-        .from('match_results')
-        .select('*')
-        .eq('match_id', matchRow.id);
-
-      if (resultError) throw resultError;
-
-      const results: MatchResult[] = (resultRows || []).map(resultRow => ({
-        teamId: resultRow.team_id,
-        placement: resultRow.placement,
-        kills: resultRow.kills,
-        points: resultRow.points,
-      }));
-
-      matches.push({
-        id: matchRow.id,
-        lobbyId: matchRow.lobby_id,
-        matchNumber: matchRow.match_number,
-        results,
-        createdAt: matchRow.created_at,
-      });
-    }
-
-    return dbRowToLobby(lobbyRow, teams, matches);
+    return bundleToLobby(data);
   } catch (error) {
     console.error('Error fetching lobby from Supabase:', error);
     return null;
@@ -181,188 +78,100 @@ export async function getLobby(id: string): Promise<Lobby | null> {
 }
 
 /**
- * Save a lobby (create or update)
+ * Get all lobbies - optimized with lightweight summary
+ * Uses RPC for better performance
+ */
+export async function getAllLobbies(): Promise<Lobby[]> {
+  try {
+    const supabase = supabaseBrowser();
+    
+    // First get lightweight summaries
+    const { data: summaries, error: summaryError } = await supabase
+      .rpc('get_lobbies_summary');
+
+    if (summaryError) throw summaryError;
+    if (!summaries || summaries.length === 0) return [];
+
+    // For dashboard, we can return lightweight versions
+    // Full details loaded on-demand when viewing a lobby
+    return summaries.map((summary: any) => ({
+      id: summary.id,
+      name: summary.name,
+      date: summary.date,
+      status: summary.status,
+      hostNotes: undefined,
+      tournamentName: '',
+      prizeMoney: '',
+      tournamentStage: '',
+      backgroundTemplate: undefined,
+      backgroundImageUrl: undefined,
+      matchesCount: summary.matches_count || 6,
+      registeredTeams: summary.registered_teams || 12,
+      playingTeams: summary.playing_teams || summary.registered_teams || 12,
+      teams: [],
+      matches: [],
+      createdAt: summary.created_at,
+    }));
+  } catch (error) {
+    console.error('Error fetching lobbies from Supabase:', error);
+    return [];
+  }
+}
+
+/**
+ * Save a lobby using optimized RPC transaction
+ * ONE HTTP request instead of 10+
  */
 export async function saveLobby(lobby: Lobby): Promise<void> {
   try {
-    // Upsert lobby
-    const { error: lobbyError } = await supabase
-      .from('lobbies')
-      .upsert({
-        id: lobby.id,
-        name: lobby.name,
-        date: lobby.date,
-        status: lobby.status,
-        host_notes: lobby.hostNotes || null,
-        tournament_name: lobby.tournamentName,
-        prize_money: lobby.prizeMoney,
-        tournament_stage: lobby.tournamentStage,
-        background_image_url: lobby.backgroundImageUrl || null,
-        background_template: lobby.backgroundTemplate || null,
-        matches_count: lobby.matchesCount || 6,
-        registered_teams: lobby.registeredTeams || 12,
-        playing_teams: lobby.playingTeams || lobby.registeredTeams || 12,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'id',
-      });
+    const supabase = supabaseBrowser();
 
-    if (lobbyError) throw lobbyError;
+    // Prepare lobby data
+    const lobbyData = {
+      id: lobby.id,
+      name: lobby.name,
+      date: lobby.date,
+      status: lobby.status,
+      host_notes: lobby.hostNotes || null,
+      tournament_name: lobby.tournamentName,
+      prize_money: lobby.prizeMoney,
+      tournament_stage: lobby.tournamentStage,
+      background_image_url: lobby.backgroundImageUrl || null,
+      background_template: lobby.backgroundTemplate || null,
+      matches_count: lobby.matchesCount || 6,
+      registered_teams: lobby.registeredTeams || 12,
+      playing_teams: lobby.playingTeams || lobby.registeredTeams || 12,
+    };
 
-    // Get existing teams to preserve IDs
-    const { data: existingTeams, error: existingTeamsError } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('lobby_id', lobby.id);
+    // Prepare teams data
+    const teamsData = lobby.teams.map(team => ({
+      id: team.id,
+      name: team.name,
+      slotNumber: team.slotNumber,
+    }));
 
-    if (existingTeamsError) throw existingTeamsError;
-
-    // Delete existing match results and matches first (to avoid foreign key issues)
-    const { data: existingMatches, error: matchFetchError } = await supabase
-      .from('matches')
-      .select('id')
-      .eq('lobby_id', lobby.id);
-
-    if (matchFetchError) throw matchFetchError;
-
-    // Delete match results for existing matches
-    if (existingMatches && existingMatches.length > 0) {
-      const matchIds = existingMatches.map(m => m.id);
-      const { error: resultDeleteError } = await supabase
-        .from('match_results')
-        .delete()
-        .in('match_id', matchIds);
-
-      if (resultDeleteError) throw resultDeleteError;
-    }
-
-    // Delete matches
-    const { error: matchDeleteError } = await supabase
-      .from('matches')
-      .delete()
-      .eq('lobby_id', lobby.id);
-
-    if (matchDeleteError) throw matchDeleteError;
-
-    // Update or insert teams (preserve IDs when possible)
-    if (lobby.teams.length > 0) {
-      const existingTeamsMap = new Map((existingTeams || []).map(t => [t.slot_number, t]));
-      
-      const teamsToUpdate: any[] = [];
-      const teamsToInsert: any[] = [];
-      
-      lobby.teams.forEach((team, index) => {
-        const existingTeam = existingTeamsMap.get(team.slotNumber);
-        if (existingTeam) {
-          // Update existing team (preserve ID)
-          teamsToUpdate.push({
-            id: existingTeam.id,
-            name: team.name,
-            slot_number: team.slotNumber,
-          });
-        } else {
-          // Insert new team
-          teamsToInsert.push({
-            id: team.id,
-            lobby_id: team.lobbyId,
-            name: team.name,
-            slot_number: team.slotNumber,
-          });
-        }
-      });
-
-      // Update existing teams
-      if (teamsToUpdate.length > 0) {
-        for (const team of teamsToUpdate) {
-          const { error: updateError } = await supabase
-            .from('teams')
-            .update({ name: team.name })
-            .eq('id', team.id);
-          
-          if (updateError) throw updateError;
-        }
-      }
-
-      // Insert new teams
-      if (teamsToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from('teams')
-          .insert(teamsToInsert);
-        
-        if (insertError) throw insertError;
-      }
-
-      // Delete teams that are no longer in the lobby
-      const currentSlotNumbers = new Set(lobby.teams.map(t => t.slotNumber));
-      const teamsToDelete = (existingTeams || []).filter(t => !currentSlotNumbers.has(t.slot_number));
-      
-      if (teamsToDelete.length > 0) {
-        const teamIdsToDelete = teamsToDelete.map(t => t.id);
-        const { error: deleteError } = await supabase
-          .from('teams')
-          .delete()
-          .in('id', teamIdsToDelete);
-        
-        if (deleteError) throw deleteError;
-      }
-    }
-
-    // Insert matches and their results (only up to matchesCount)
-    const matchesToInsert = lobby.matches
+    // Prepare matches data (only up to matchesCount)
+    const matchesData = lobby.matches
       .filter(match => match.matchNumber <= (lobby.matchesCount || 6))
-      .sort((a, b) => a.matchNumber - b.matchNumber);
-    
-    for (const match of matchesToInsert) {
-      // Insert match (use upsert to handle existing matches)
-      const { data: matchData, error: matchError } = await supabase
-        .from('matches')
-        .upsert({
-          id: match.id,
-          lobby_id: match.lobbyId,
-          match_number: match.matchNumber,
-        }, {
-          onConflict: 'id',
-        })
-        .select()
-        .single();
-
-      if (matchError) throw matchError;
-
-      // Delete existing match results for this match (to avoid duplicates)
-      const { error: deleteResultsError } = await supabase
-        .from('match_results')
-        .delete()
-        .eq('match_id', match.id);
-
-      if (deleteResultsError) throw deleteResultsError;
-
-      // Insert match results
-      if (match.results.length > 0) {
-        const resultRows = match.results.map(result => ({
-          match_id: match.id,
-          team_id: result.teamId,
+      .map(match => ({
+        id: match.id,
+        matchNumber: match.matchNumber,
+        results: match.results.map(result => ({
+          teamId: result.teamId,
           placement: result.placement,
           kills: result.kills,
           points: result.points,
-        }));
+        })),
+      }));
 
-        const { error: resultError } = await supabase
-          .from('match_results')
-          .insert(resultRows);
+    // Single RPC call handles everything in one transaction
+    const { error } = await supabase.rpc('save_lobby_tx', {
+      p_lobby: lobbyData,
+      p_teams: teamsData,
+      p_matches: matchesData,
+    });
 
-        if (resultError) throw resultError;
-      }
-    }
-    
-    // Delete any matches that exceed matchesCount
-    const maxMatchNumber = lobby.matchesCount || 6;
-    const { error: deleteExcessMatchesError } = await supabase
-      .from('matches')
-      .delete()
-      .eq('lobby_id', lobby.id)
-      .gt('match_number', maxMatchNumber);
-
-    if (deleteExcessMatchesError) throw deleteExcessMatchesError;
+    if (error) throw error;
   } catch (error) {
     console.error('Error saving lobby to Supabase:', error);
     throw error;
@@ -374,6 +183,8 @@ export async function saveLobby(lobby: Lobby): Promise<void> {
  */
 export async function updateMatch(lobbyId: string, matchId: string, results: MatchResult[]): Promise<void> {
   try {
+    const supabase = supabaseBrowser();
+
     // Delete existing match results
     const { error: deleteError } = await supabase
       .from('match_results')
@@ -417,7 +228,7 @@ export async function updateMatch(lobbyId: string, matchId: string, results: Mat
  */
 export async function deleteLobby(id: string): Promise<void> {
   try {
-    // Delete lobby (cascade will handle teams, matches, and results)
+    const supabase = supabaseBrowser();
     const { error } = await supabase
       .from('lobbies')
       .delete()
@@ -431,76 +242,41 @@ export async function deleteLobby(id: string): Promise<void> {
 }
 
 /**
- * Get lobbies filtered by date
+ * Get lobbies filtered by date - optimized with selective columns
  */
 export async function getLobbiesByDate(date: string): Promise<Lobby[]> {
   try {
+    const supabase = supabaseBrowser();
+    
+    // Only fetch essential columns for list view
     const { data: lobbyRows, error: lobbyError } = await supabase
       .from('lobbies')
-      .select('*')
+      .select('id,name,date,status,matches_count,registered_teams,playing_teams,created_at')
       .eq('date', date)
       .order('created_at', { ascending: false });
 
     if (lobbyError) throw lobbyError;
     if (!lobbyRows) return [];
 
-    // Fetch teams and matches for each lobby (same as getAllLobbies)
-    const lobbies: Lobby[] = [];
-    
-    for (const lobbyRow of lobbyRows) {
-      const { data: teamRows, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('lobby_id', lobbyRow.id)
-        .order('slot_number', { ascending: true });
-
-      if (teamError) throw teamError;
-
-      const teams: Team[] = (teamRows || []).map(row => ({
-        id: row.id,
-        lobbyId: row.lobby_id,
-        name: row.name,
-        slotNumber: row.slot_number,
-      }));
-
-      const { data: matchRows, error: matchError } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('lobby_id', lobbyRow.id)
-        .order('match_number', { ascending: true });
-
-      if (matchError) throw matchError;
-
-      const matches: Match[] = [];
-      
-      for (const matchRow of matchRows || []) {
-        const { data: resultRows, error: resultError } = await supabase
-          .from('match_results')
-          .select('*')
-          .eq('match_id', matchRow.id);
-
-        if (resultError) throw resultError;
-
-        const results: MatchResult[] = (resultRows || []).map(resultRow => ({
-          teamId: resultRow.team_id,
-          placement: resultRow.placement,
-          kills: resultRow.kills,
-          points: resultRow.points,
-        }));
-
-        matches.push({
-          id: matchRow.id,
-          lobbyId: matchRow.lobby_id,
-          matchNumber: matchRow.match_number,
-          results,
-          createdAt: matchRow.created_at,
-        });
-      }
-
-      lobbies.push(dbRowToLobby(lobbyRow, teams, matches));
-    }
-
-    return lobbies;
+    // Return lightweight versions (full details loaded on-demand)
+    return lobbyRows.map(row => ({
+      id: row.id,
+      name: row.name,
+      date: row.date,
+      status: row.status,
+      hostNotes: undefined,
+      tournamentName: '',
+      prizeMoney: '',
+      tournamentStage: '',
+      backgroundTemplate: undefined,
+      backgroundImageUrl: undefined,
+      matchesCount: row.matches_count || 6,
+      registeredTeams: row.registered_teams || 12,
+      playingTeams: row.playing_teams || row.registered_teams || 12,
+      teams: [],
+      matches: [],
+      createdAt: row.created_at,
+    }));
   } catch (error) {
     console.error('Error fetching lobbies by date from Supabase:', error);
     return [];
