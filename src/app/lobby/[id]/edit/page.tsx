@@ -362,6 +362,9 @@ export default function EditLobbyPage() {
                     required
                   >
                     <option value="">Select Stage</option>
+                    <option value="League">League</option>
+                    <option value="Qualifiers">Qualifiers</option>
+                    <option value="T2 Scrims">T2 Scrims</option>
                     <option value="Quarters">Quarters</option>
                     <option value="Semi-Finals">Semi-Finals</option>
                     <option value="Finals">Finals</option>
