@@ -4,7 +4,9 @@ import { toPng } from 'html-to-image';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import LeaderboardImageTemplate from '@/components/LeaderboardImageTemplate';
+import TournamentPointsTemplate from '@/components/TournamentPointsTemplate';
 import { ThemeProvider } from '@/context/ThemeProvider';
+import { PointsTemplateProvider } from '@/context/PointsTemplateProvider';
 
 /**
  * Export lobby data to CSV format
@@ -180,9 +182,19 @@ export function exportDailySummary(lobbies: Lobby[], date: string): void {
  */
 export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
   try {
-    // 3:4 aspect ratio (width:height) - e.g., 1500px width = 2000px height
-    const templateWidth = 1500;
-    const templateHeight = 2000;
+    // Check if points template is set - use TournamentPointsTemplate if so
+    const usePointsTemplate = !!lobby.pointsTemplate;
+    
+    // Get dimensions from template or use defaults
+    let templateWidth = 1500;
+    let templateHeight = 2000;
+    
+    if (usePointsTemplate) {
+      const { getPointsTemplate } = await import('@/lib/pointsTemplates');
+      const ptsTemplate = getPointsTemplate(lobby.pointsTemplate);
+      templateWidth = ptsTemplate.width;
+      templateHeight = ptsTemplate.height;
+    }
     
     // Create a temporary container
     const container = document.createElement('div');
@@ -198,48 +210,67 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     const root = createRoot(container);
     
     await new Promise<void>((resolve) => {
-      root.render(
-        React.createElement(
-          ThemeProvider,
-          { templateId: lobby.backgroundTemplate },
-          React.createElement(LeaderboardImageTemplate, { lobby })
-        )
-      );
+      if (usePointsTemplate) {
+        // Use TournamentPointsTemplate
+        root.render(
+          React.createElement(
+            PointsTemplateProvider,
+            { templateId: lobby.pointsTemplate },
+            React.createElement(TournamentPointsTemplate, { lobby })
+          )
+        );
+      } else {
+        // Use LeaderboardImageTemplate (existing behavior)
+        root.render(
+          React.createElement(
+            ThemeProvider,
+            { templateId: lobby.backgroundTemplate },
+            React.createElement(LeaderboardImageTemplate, { lobby })
+          )
+        );
+      }
       
       // Wait for images and content to render
       setTimeout(() => {
-        const templateElement = container.querySelector('#leaderboard-export-template');
+        const templateElement = container.querySelector(
+          usePointsTemplate ? '#tournament-points-template' : '#leaderboard-export-template'
+        );
         if (templateElement) {
-          // Get background image URL from template ID or direct URL
-          // Handle black template specially (no image, just CSS background)
-          const isBlackBackground = lobby.backgroundTemplate === 'black';
-          
-          const getBackgroundUrl = () => {
-            if (isBlackBackground) return undefined;
-            if (!lobby.backgroundTemplate) return lobby.backgroundImageUrl;
-            
-            // Use absolute URL for Vercel deployment compatibility
-            if (typeof window !== 'undefined') {
-              return `${window.location.origin}/backgrounds/${lobby.backgroundTemplate}.jpg`;
-            }
-            return `/backgrounds/${lobby.backgroundTemplate}.jpg`;
-          };
-          
-          const backgroundImageUrl = getBackgroundUrl();
-          
-          // Wait for background image to load if present (not for black background)
-          if (backgroundImageUrl && !isBlackBackground) {
-            const img: HTMLImageElement = new window.Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-              setTimeout(resolve, 800); // Extra time for full rendering
-            };
-            img.onerror = () => {
-              setTimeout(resolve, 800); // Continue even if image fails
-            };
-            img.src = backgroundImageUrl;
-          } else {
+          if (usePointsTemplate) {
+            // For points template, no background image loading needed
             setTimeout(resolve, 800);
+          } else {
+            // Get background image URL from template ID or direct URL
+            // Handle black template specially (no image, just CSS background)
+            const isBlackBackground = lobby.backgroundTemplate === 'black';
+            
+            const getBackgroundUrl = () => {
+              if (isBlackBackground) return undefined;
+              if (!lobby.backgroundTemplate) return lobby.backgroundImageUrl;
+              
+              // Use absolute URL for Vercel deployment compatibility
+              if (typeof window !== 'undefined') {
+                return `${window.location.origin}/backgrounds/${lobby.backgroundTemplate}.jpg`;
+              }
+              return `/backgrounds/${lobby.backgroundTemplate}.jpg`;
+            };
+            
+            const backgroundImageUrl = getBackgroundUrl();
+            
+            // Wait for background image to load if present (not for black background)
+            if (backgroundImageUrl && !isBlackBackground) {
+              const img: HTMLImageElement = new window.Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => {
+                setTimeout(resolve, 800); // Extra time for full rendering
+              };
+              img.onerror = () => {
+                setTimeout(resolve, 800); // Continue even if image fails
+              };
+              img.src = backgroundImageUrl;
+            } else {
+              setTimeout(resolve, 800);
+            }
           }
         } else {
           setTimeout(resolve, 1000);
@@ -248,7 +279,9 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     });
 
     // Find the template element
-    const templateElement = container.querySelector('#leaderboard-export-template') as HTMLElement;
+    const templateElement = container.querySelector(
+      usePointsTemplate ? '#tournament-points-template' : '#leaderboard-export-template'
+    ) as HTMLElement;
     
     if (!templateElement) {
       throw new Error('Template element not found');
@@ -257,8 +290,7 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     // Wait for layout to fully settle
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // CRITICAL: Force exact 3:4 dimensions - prevent content from shrinking
-    // Use minWidth/minHeight to ensure element never shrinks below target size
+    // CRITICAL: Force exact dimensions - prevent content from shrinking
     templateElement.style.width = `${templateWidth}px`;
     templateElement.style.height = `${templateHeight}px`;
     templateElement.style.minWidth = `${templateWidth}px`;
@@ -266,14 +298,14 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     templateElement.style.maxWidth = `${templateWidth}px`;
     templateElement.style.maxHeight = `${templateHeight}px`;
     templateElement.style.margin = '0';
-    templateElement.style.padding = '60px 40px'; // Explicit padding to match component
+    templateElement.style.padding = usePointsTemplate ? '60px 40px' : '60px 40px';
     templateElement.style.boxSizing = 'border-box';
-    templateElement.style.overflow = 'visible'; // Allow content to be visible
+    templateElement.style.overflow = 'visible';
     templateElement.style.display = 'flex';
     templateElement.style.flexDirection = 'column';
     templateElement.style.justifyContent = 'space-between';
     templateElement.style.alignItems = 'center';
-    templateElement.style.flexShrink = '0'; // Prevent flex shrinking
+    templateElement.style.flexShrink = '0';
 
     // Update container to match exactly
     container.style.width = `${templateWidth}px`;
@@ -282,26 +314,30 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     container.style.minHeight = `${templateHeight}px`;
     container.style.margin = '0';
     container.style.padding = '0';
-    container.style.overflow = 'visible'; // Changed from hidden to visible
+    container.style.overflow = 'visible';
     container.style.boxSizing = 'border-box';
 
-    // Update background div to match exact dimensions
-    const backgroundDiv = templateElement.querySelector('div[style*="backgroundImage"], div[style*="backgroundColor: #000000"]') as HTMLElement;
-    if (backgroundDiv) {
-      backgroundDiv.style.width = `${templateWidth}px`;
-      backgroundDiv.style.height = `${templateHeight}px`;
-      backgroundDiv.style.minWidth = `${templateWidth}px`;
-      backgroundDiv.style.minHeight = `${templateHeight}px`;
-      backgroundDiv.style.margin = '0';
-      backgroundDiv.style.padding = '0';
-      backgroundDiv.style.boxSizing = 'border-box';
-      backgroundDiv.style.position = 'absolute';
-      backgroundDiv.style.top = '0';
-      backgroundDiv.style.left = '0';
+    // Update background div to match exact dimensions (only for LeaderboardImageTemplate)
+    if (!usePointsTemplate) {
+      const backgroundDiv = templateElement.querySelector('div[style*="backgroundImage"], div[style*="backgroundColor: #000000"]') as HTMLElement;
+      if (backgroundDiv) {
+        backgroundDiv.style.width = `${templateWidth}px`;
+        backgroundDiv.style.height = `${templateHeight}px`;
+        backgroundDiv.style.minWidth = `${templateWidth}px`;
+        backgroundDiv.style.minHeight = `${templateHeight}px`;
+        backgroundDiv.style.margin = '0';
+        backgroundDiv.style.padding = '0';
+        backgroundDiv.style.boxSizing = 'border-box';
+        backgroundDiv.style.position = 'absolute';
+        backgroundDiv.style.top = '0';
+        backgroundDiv.style.left = '0';
+      }
     }
 
     // Ensure all flex children don't shrink
-    const flexChildren = templateElement.querySelectorAll('header, footer, #leaderboard-table-container');
+    const flexChildren = templateElement.querySelectorAll(
+      usePointsTemplate ? 'header, footer' : 'header, footer, #leaderboard-table-container'
+    );
     flexChildren.forEach((child) => {
       (child as HTMLElement).style.flexShrink = '0';
     });
@@ -312,12 +348,11 @@ export async function exportLeaderboardAsImage(lobby: Lobby): Promise<void> {
     // Force a reflow to ensure dimensions are applied
     void templateElement.offsetHeight;
 
-    // Convert to PNG - let html-to-image read the actual computed dimensions
-    // But explicitly set width/height to ensure correct output
+    // Convert to PNG
     const dataUrl = await toPng(templateElement, {
       quality: 1.0,
-      pixelRatio: 2, // Higher resolution
-      backgroundColor: '#000000', // Fallback background
+      pixelRatio: 2,
+      backgroundColor: '#000000',
       cacheBust: true,
       width: templateWidth,
       height: templateHeight,

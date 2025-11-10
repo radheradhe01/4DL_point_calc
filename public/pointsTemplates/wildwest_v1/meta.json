@@ -1,0 +1,54 @@
+{
+  "id": "wildwest_v1",
+  "name": "Wild West",
+  "description": "Red and gold tournament standings template with character art",
+  "width": 1500,
+  "height": 2000,
+  "rows": 12,
+  "cols": ["pos", "team", "match", "place", "finish", "total", "wins"],
+  "imageUrl": "/pointsTemplates/wildwest_v1/full.jpg",
+  "tablePosition": {
+    "left": 69,
+    "top": 704,
+    "width": 1140,
+    "height": 1026
+  },
+  "columnWidths": [333, 302, 176, 84, 137, 129, 80],
+  "rowHeight": 82,
+  "headerRowHeight": 50,
+  "textStyles": {
+    "header": {
+      "fontSize": 20,
+      "fontWeight": 700,
+      "color": "#FFFFFF",
+      "fontFamily": "Arial, sans-serif"
+    },
+    "data": {
+      "fontSize": 22,
+      "fontWeight": 600,
+      "color": "#FFFFFF",
+      "fontFamily": "Arial, sans-serif"
+    },
+    "goldCells": {
+      "fontSize": 24,
+      "fontWeight": 700,
+      "color": "#FFFFFF",
+      "fontFamily": "Arial, sans-serif"
+    },
+    "totalCell": {
+      "fontSize": 24,
+      "fontWeight": 700,
+      "color": "#000000",
+      "fontFamily": "Arial, sans-serif"
+    }
+  },
+  "themeDefaults": {
+    "headerBg": "#be0d05",
+    "cellBg": "#7f0000",
+    "cellBorder": "#bfa137",
+    "accentGold": "#FFD700",
+    "textWhite": "#FFFFFF",
+    "textBlack": "#000000"
+  }
+}
+

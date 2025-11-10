@@ -31,6 +31,7 @@ export interface Lobby {
   tournamentStage: string;
   backgroundTemplate?: string; // Template ID instead of image URL
   backgroundImageUrl?: string; // Keep for backward compatibility, but prefer backgroundTemplate
+  pointsTemplate?: string; // Points sheet template ID (e.g., 'wildwest_v1')
   matchesCount: number; // Configurable number of matches (default: 6)
   registeredTeams: number; // Total teams registered (default: 12)
   playingTeams: number; // Teams actually playing (default: 12, <= registeredTeams)

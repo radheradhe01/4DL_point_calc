@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Lobby, Team } from '@/lib/types';
 import { saveLobby, generateLobbyId } from '@/lib/storage';
 import { BackgroundTemplate } from '@/lib/backgroundTemplates';
+import { getAllPointsTemplates } from '@/lib/pointsTemplates';
 import DateInput from '@/components/DateInput';
 
 export default function NewLobbyPage() {
@@ -17,6 +18,7 @@ export default function NewLobbyPage() {
   const [prizeMoney, setPrizeMoney] = useState('');
   const [tournamentStage, setTournamentStage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [pointsTemplate, setPointsTemplate] = useState<string>('wildwest_v1');
   const [matchesCount, setMatchesCount] = useState<number>(6);
   const [registeredTeams, setRegisteredTeams] = useState<number>(12);
   const [playingTeams, setPlayingTeams] = useState<number>(12);
@@ -168,6 +170,7 @@ export default function NewLobbyPage() {
         prizeMoney: prizeMoney.trim() || undefined,
         tournamentStage: tournamentStage.trim(),
         backgroundTemplate: selectedTemplate,
+        pointsTemplate: pointsTemplate || undefined,
         matchesCount: matchesCount,
         registeredTeams: registeredTeams,
         playingTeams: playingTeams,
@@ -424,6 +427,27 @@ export default function NewLobbyPage() {
                 )}
                 <p className="mt-2 text-xs text-gray-500">
                   Choose a background template for the leaderboard export
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="points-template" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Points Sheet Template
+                </label>
+                <select
+                  id="points-template"
+                  value={pointsTemplate}
+                  onChange={(e) => setPointsTemplate(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base text-gray-900 bg-white"
+                >
+                  {getAllPointsTemplates().map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Template for tournament points sheet export
                 </p>
               </div>
 
